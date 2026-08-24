@@ -246,6 +246,15 @@
             BUY THE LINK
         </button>
 
+
+        
+<div class="current-owner">
+  Currently owned by <strong id="current-owner">Loading...</strong>
+</div>
+       
+        
+
+        
     </main>
 
     <section class="card">
@@ -437,6 +446,35 @@ async function loadCurrentPrice() {
     console.error('Could not load modal price:', error);
   }
 }
+async function loadCurrentOwner() {
+  try {
+    const response = await fetch(
+      '/api/owner'
+    );
+
+    if (!response.ok) {
+      throw new Error('Owner unavailable');
+    }
+
+    const data = await response.json();
+
+    const ownerElement =
+      document.getElementById('current-owner');
+
+    if (ownerElement) {
+      ownerElement.textContent =
+        data.owner || 'No owner yet';
+    }
+
+  } catch (error) {
+    console.error(
+      'Could not load current owner:',
+      error
+    );
+  }
+}
+
+loadCurrentOwner();
 
 loadmodalPrice();
 </script>
