@@ -409,6 +409,29 @@
         });
 
 </script>
+async function loadCurrentPrice() {
+  try {
+    const response = await fetch('/api/price');
+
+    if (!response.ok) {
+      throw new Error('Price unavailable');
+    }
+
+    const data = await response.json();
+
+    const priceElement = document.getElementById('current-price');
+
+    if (priceElement) {
+      priceElement.textContent = (data.price / 100).toFixed(2);
+    }
+
+  } catch (error) {
+    console.error('Could not load current price:', error);
+  }
+}
+
+loadCurrentPrice();
+</script>
 
 </body>
 </html>
