@@ -480,33 +480,25 @@ async function loadCurrentOwner() {
 loadCurrentOwner();
 
 loadmodalPrice();
-    async function loadVisitorCount() {
-  try {
-    const response = await fetch('/api/visitors');
-
+    
+  fetch('/api/visitors')
+  .then(response => {
     if (!response.ok) {
-      throw new Error('Visitor count unavailable');
+      throw new Error('Visitor API failed');
     }
+    return response.json();
+  })
+  .then(data => {
+    const element = document.getElementById('visitor-count');
 
-    const data = await response.json();
-
-    const visitorElement =
-      document.getElementById('visitor-count');
-
-    if (visitorElement) {
-      visitorElement.textContent =
-        Number(data.visitors).toLocaleString();
+    if (element) {
+      element.textContent = Number(data.visitors).toLocaleString();
     }
+  })
+  .catch(error => {
+    console.error('Visitor counter error:', error);
+  });
 
-  } catch (error) {
-    console.error(
-      'Could not load visitor count:',
-      error
-    );
-  }
-}
-
-loadVisitorCount();
 
 </script>
 
