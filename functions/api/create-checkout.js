@@ -1,12 +1,26 @@
 export async function onRequestPost(context) {
   try {
-    const formData = await context.request.formData();
+    const contentType =
+      context.request.headers.get("content-type") || "";
 
-    const name = String(formData.get("name") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const url = String(formData.get("url") || "").trim();
+    let name = "";
+    let email = "";
+    let url = "";
 
-    // Validate required fields
+    if (contentType.includes("application/json")) {
+      const body = await context.request.json();
+
+      name = String(body.name || "").trim();
+      email = String(body.email || "").trim();
+      url = String(body.url || "").trim();
+    } else {
+      const formData = await context.request.formData();
+
+      name = String(formData.get("name") || "").trim();
+      email = String(formData.get("email") || "").trim();
+      url = String(formData.get("url") || "").trim();
+    }
+
     if (!name || !email || !url) {
       return new Response(
         JSON.stringify({
@@ -21,7 +35,6 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
@@ -38,7 +51,6 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Validate destination URL
     let destinationUrl;
 
     try {
@@ -64,14 +76,11 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
-    // Get LIVE price from Supabase
-    // --------------------------------------------------
-
+    // Get the LIVE price from Supabase
     const supabaseUrl = context.env.SUPABASE_URL;
     const supabaseKey = context.env.SUPABASE_SECRET_KEY;
 
-    const supabaseResponse = await fetch(
+    const priceResponse = await fetch(
       `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_price`,
       {
         headers: {
@@ -82,11 +91,11 @@ export async function onRequestPost(context) {
       }
     );
 
-    if (!supabaseResponse.ok) {
+    if (!priceResponse.ok) {
       console.log(
-        "Supabase price lookup failed:",
-        supabaseResponse.status,
-        await supabaseResponse.text()
+        "Price lookup failed:",
+        priceResponse.status,
+        await priceResponse.text()
       );
 
       return new Response(
@@ -102,7 +111,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    const priceData = await supabaseResponse.json();
+    const priceData = await priceResponse.json();
 
     if (!priceData.length) {
       return new Response(
@@ -118,48 +127,14 @@ export async function onRequestPost(context) {
       );
     }
 
-    const currentPrice = Number(priceData[0].current_price);
+    const currentPrice = Number(
+      priceData[0].current_price
+    );
 
-    if (!Number.isInteger(currentPrice) || currentPrice <= 0) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid current price"
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    // --------------------------------------------------
     // Create Stripe Checkout Session
-    // --------------------------------------------------
-
-    const stripeKey = context.env.STRIPE_SECRET_KEY;
-
-    if (!stripeKey) {
-      return new Response(
-        JSON.stringify({
-          error: "Stripe secret key is not configured"
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
     const stripeParams = new URLSearchParams();
 
-    stripeParams.append(
-      "mode",
-      "payment"
-    );
+    stripeParams.append("mode", "payment");
 
     stripeParams.append(
       "success_url",
@@ -196,7 +171,6 @@ export async function onRequestPost(context) {
       String(currentPrice)
     );
 
-    // Metadata that will arrive in checkout.session.completed
     stripeParams.append(
       "metadata[name]",
       name
@@ -217,18 +191,21 @@ export async function onRequestPost(context) {
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${stripeKey}`,
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Authorization":
+            `Bearer ${context.env.STRIPE_SECRET_KEY}`,
+          "Content-Type":
+            "application/x-www-form-urlencoded"
         },
         body: stripeParams
       }
     );
 
-    const stripeData = await stripeResponse.json();
+    const stripeData =
+      await stripeResponse.json();
 
     if (!stripeResponse.ok) {
       console.log(
-        "Stripe checkout creation failed:",
+        "Stripe error:",
         stripeData
       );
 
@@ -261,13 +238,13 @@ export async function onRequestPost(context) {
 
   } catch (error) {
     console.log(
-      "Create checkout error:",
+      "Checkout error:",
       error
     );
 
     return new Response(
       JSON.stringify({
-        error: "Internal server error"
+        error: String(error)
       }),
       {
         status: 500,
