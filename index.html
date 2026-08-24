@@ -254,6 +254,17 @@
        <div class="visitor-count">
   👁 <strong id="visitor-count">Loading...</strong> people have visited
 </div>
+<script>
+fetch('/api/visitors')
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById('visitor-count').textContent =
+      data.visitors;
+  })
+  .catch(error => {
+    console.error(error);
+  });
+</script>
 
         
 
