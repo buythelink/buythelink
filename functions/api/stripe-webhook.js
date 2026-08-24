@@ -1,20 +1,18 @@
 export async function onRequestPost(context) {
   try {
-    const response = await fetch(
-      `${context.env.SUPABASE_URL}/rest/v1/site_state?id=eq.1&select=*`,
-      {
-        method: "GET",
-        headers: {
-          "apikey": context.env.SUPABASE_SECRET_KEY,
-          "Authorization": `Bearer ${context.env.SUPABASE_SECRET_KEY}`
-        }
+    const url =
+      `${context.env.SUPABASE_URL}/rest/v1/site_state?select=*&id=eq.1`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "apikey": context.env.SUPABASE_SECRET_KEY,
+        "Authorization": `Bearer ${context.env.SUPABASE_SECRET_KEY}`,
+        "Accept-Profile": "public"
       }
-    );
+    });
 
     const body = await response.text();
-
-    console.log("SUPABASE STATUS:", response.status);
-    console.log("SUPABASE RESPONSE:", body);
 
     return new Response(
       JSON.stringify({
@@ -30,8 +28,6 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
-    console.log("SUPABASE TEST ERROR:", error);
-
     return new Response(
       JSON.stringify({
         error: String(error)
