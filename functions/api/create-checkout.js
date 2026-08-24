@@ -50,7 +50,7 @@ const currentPrice = priceData[0].current_price;
       );
     }
 
-    const amount = currentPrice
+    const amount = current_price
 
     const params = new URLSearchParams();
 
