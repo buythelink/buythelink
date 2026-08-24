@@ -1,4 +1,30 @@
-export async function onRequestPost(context) {
+export async function onRequestPost(context) {const supabaseResponse = await fetch(
+  `${context.env.SUPABASE_URL}/rest/v1/site_state?id=eq.1&select=current_price`,
+  {
+    headers: {
+      "apikey": context.env.SUPABASE_SECRET_KEY,
+      "Authorization": `Bearer ${context.env.SUPABASE_SECRET_KEY}`,
+      "Accept-Profile": "public"
+    }
+  }
+);
+
+if (!supabaseResponse.ok) {
+  return new Response("Unable to get current price", {
+    status: 500
+  });
+}
+
+const priceData = await supabaseResponse.json();
+
+if (!priceData.length) {
+  return new Response("Current price not found", {
+    status: 500
+  });
+}
+
+const currentPrice = priceData[0].current_price;
+
   try {
     const body = await context.request.json();
 
@@ -24,7 +50,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    const amount = 1000; // $10.00 in cents
+    const amount = currentPrice
 
     const params = new URLSearchParams();
 
