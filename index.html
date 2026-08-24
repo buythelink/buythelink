@@ -251,7 +251,10 @@
 <div class="current-owner">
   Currently owned by <strong id="current-owner">Loading...</strong>
 </div>
-       
+       <div class="visitor-count">
+  👁 <strong id="visitor-count">Loading...</strong> people have visited
+</div>
+
         
 
         
@@ -477,6 +480,34 @@ async function loadCurrentOwner() {
 loadCurrentOwner();
 
 loadmodalPrice();
+    async function loadVisitorCount() {
+  try {
+    const response = await fetch('/api/visitors');
+
+    if (!response.ok) {
+      throw new Error('Visitor count unavailable');
+    }
+
+    const data = await response.json();
+
+    const visitorElement =
+      document.getElementById('visitor-count');
+
+    if (visitorElement) {
+      visitorElement.textContent =
+        Number(data.visitors).toLocaleString();
+    }
+
+  } catch (error) {
+    console.error(
+      'Could not load visitor count:',
+      error
+    );
+  }
+}
+
+loadVisitorCount();
+
 </script>
 
 </body>
