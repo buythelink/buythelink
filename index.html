@@ -285,7 +285,7 @@
 
         <h2>Buy the link</h2>
 
-        <div class="modal-price">$10.00</div>
+        <div class="modal-price">$<span id="modal-price">12.50</span></div>
 
         <form id="purchaseForm">
 
@@ -427,18 +427,18 @@ async function loadCurrentPrice() {
 
     const data = await response.json();
 
-    const priceElement = document.getElementById('current-price');
+    const priceElement = document.getElementById('modal-price');
 
     if (priceElement) {
       priceElement.textContent = (data.price / 100).toFixed(2);
     }
 
   } catch (error) {
-    console.error('Could not load current price:', error);
+    console.error('Could not load modal price:', error);
   }
 }
 
-loadCurrentPrice();
+loadmodalPrice();
 </script>
 
 </body>
