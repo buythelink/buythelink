@@ -1,14 +1,25 @@
 export async function onRequestPost(context) {
-  console.log("WEBHOOK RECEIVED");
-
   try {
-    const body = await context.request.text();
+    const response = await fetch(
+      `${context.env.SUPABASE_URL}/rest/v1/site_state?id=eq.1&select=*`,
+      {
+        method: "GET",
+        headers: {
+          "apikey": context.env.SUPABASE_SECRET_KEY,
+          "Authorization": `Bearer ${context.env.SUPABASE_SECRET_KEY}`
+        }
+      }
+    );
 
-    console.log("BODY RECEIVED");
+    const body = await response.text();
+
+    console.log("SUPABASE STATUS:", response.status);
+    console.log("SUPABASE RESPONSE:", body);
 
     return new Response(
       JSON.stringify({
-        received: true
+        supabase_status: response.status,
+        supabase_response: body
       }),
       {
         status: 200,
@@ -19,14 +30,14 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
-    console.log("WEBHOOK ERROR", error);
+    console.log("SUPABASE TEST ERROR:", error);
 
     return new Response(
       JSON.stringify({
         error: String(error)
       }),
       {
-        status: 500,
+        status: 200,
         headers: {
           "Content-Type": "application/json"
         }
