@@ -1,7 +1,87 @@
 export async function onRequestPost(context) {
+async function verifyStripeSignature(body, signature, secret) {
+  if (!signature || !secret) {
+    return false;
+  }
+
+  const parts = signature.split(",");
+
+  let timestamp = null;
+  const signatures = [];
+
+  for (const part of parts) {
+    const [key, value] = part.split("=");
+
+    if (key === "t") {
+      timestamp = value;
+    }
+
+    if (key === "v1") {
+      signatures.push(value);
+    }
+  }
+
+  if (!timestamp || signatures.length === 0) {
+    return false;
+  }
+
+  // Reject old/replayed webhook requests
+  const timestampAge = Math.floor(Date.now() / 1000) - Number(timestamp);
+
+  if (Math.abs(timestampAge) > 300) {
+    return false;
+  }
+
+  const signedPayload = `${timestamp}.${body}`;
+
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    {
+      name: "HMAC",
+      hash: "SHA-256"
+    },
+    false,
+    ["sign"]
+  );
+
+  const signatureBytes = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(signedPayload)
+  );
+
+  const expectedSignature = Array.from(
+    new Uint8Array(signatureBytes)
+  )
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return signatures.some(
+    signature => signature === expectedSignature
+  );
+}
+
   try {
     const body = await context.request.text();
+const stripeSignature =
+  context.request.headers.get("Stripe-Signature");
 
+const isValid = await verifyStripeSignature(
+  body,
+  stripeSignature,
+  context.env.STRIPE_WEBHOOK_SECRET
+);
+
+if (!isValid) {
+  return new Response("Invalid Stripe signature", {
+    status: 400
+  });
+}
+
+    
     // For this MVP, Stripe has already delivered the event
     // to this private server endpoint.
     const event = JSON.parse(body);
