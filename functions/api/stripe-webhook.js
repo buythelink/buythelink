@@ -356,34 +356,39 @@ export async function onRequestPost(context) {
           "Prefer": "return=minimal"
         },
 
-        body: JSON.stringify({
-          current_price: newPrice,
-          current_owner: ownerName,
-          current_email: ownerEmail,
-          current_url: destinationUrl,
-          sale_count: saleNumber,
-          total_revenue:
-            state.total_revenue + session.amount_total,
-          updated_at: new Date().toISOString()
-        })
+       body: JSON.stringify({
+  current_price: Number(newPrice),
+  current_owner: ownerName,
+  current_email: ownerEmail,
+  current_url: destinationUrl,
+  sale_count: Number(saleNumber),
+  total_revenue:
+    Number(state.total_revenue || 0) +
+    Number(session.amount_total || 0),
+  updated_at: new Date().toISOString()
+})
+
       }
     );
 
-    if (!updateResponse.ok) {
+   if (!updateResponse.ok) {
 
-      console.log(
-        "State update failed:",
-        updateResponse.status,
-        await updateResponse.text()
-      );
+  const updateError = await updateResponse.text();
 
-      return new Response(
-        "Sale recorded but state update failed",
-        {
-          status: 500
-        }
-      );
+  console.log(
+    "State update failed:",
+    updateResponse.status,
+    updateError
+  );
+
+  return new Response(
+    `State update failed: ${updateResponse.status} ${updateError}`,
+    {
+      status: 500
     }
+  );
+}
+
 
     // --------------------------------------------------
     // 8. Complete
