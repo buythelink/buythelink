@@ -143,11 +143,10 @@ if (!isValid) {
       });
     }
 
-    const existingSales = await existingResponse.json();
+const existingSales = await existingResponse.json();
 
-    if (existingSales.length > 0) {
-      return new Response("Already processed", {
-        status: 200
+const alreadyProcessed = existingSales.length > 0;
+
       });
     }
 
@@ -216,7 +215,11 @@ if (!isValid) {
     // 5. Record the sale
     // --------------------------------------------------
 
-    const saleResponse = await fetch(
+    let saleResponse;
+
+if (!alreadyProcessed) {
+  saleResponse = await fetch(
+
       `${supabaseUrl}/rest/v1/sales`,
       {
         method: "POST",
@@ -245,8 +248,13 @@ if (!isValid) {
 
       return new Response("Unable to record sale", {
         status: 500
-      });
+        });
     }
+} else {
+  console.log(
+    "Sale already recorded — retrying state update"
+  );
+}
 
     // --------------------------------------------------
     // 6. Update current BuyTheLink ownership
