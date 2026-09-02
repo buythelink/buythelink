@@ -29,6 +29,7 @@ export async function onRequestPost(context) {
     const timestampAge =
       Math.floor(Date.now() / 1000) - Number(timestamp);
 
+    // Reject signatures older than 5 minutes
     if (Math.abs(timestampAge) > 300) {
       return false;
     }
@@ -50,7 +51,9 @@ export async function onRequestPost(context) {
     for (const signatureValue of signatures) {
       try {
         const signatureBytes = new Uint8Array(
-          signatureValue.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+          signatureValue
+            .match(/.{1,2}/g)
+            .map(byte => parseInt(byte, 16))
         );
 
         const valid = await crypto.subtle.verify(
@@ -63,8 +66,12 @@ export async function onRequestPost(context) {
         if (valid) {
           return true;
         }
+
       } catch (error) {
-        console.log("Signature verification error:", error);
+        console.log(
+          "Signature verification error:",
+          error
+        );
       }
     }
 
@@ -89,86 +96,143 @@ export async function onRequestPost(context) {
     );
 
     if (!isValid) {
-      return new Response("Invalid Stripe signature", {
-        status: 400
-      });
+      return new Response(
+        "Invalid Stripe signature",
+        {
+          status: 400
+        }
+      );
     }
 
     // --------------------------------------------------
-    // Read Stripe event
+    // 1. Read Stripe event
     // --------------------------------------------------
 
     const event = JSON.parse(body);
 
-    if (event.type !== "checkout.session.completed") {
-      return new Response("Event ignored", {
-        status: 200
-      });
+    // We only care about completed Checkout Sessions
+    if (
+      event.type !==
+      "checkout.session.completed"
+    ) {
+      return new Response(
+        "Event ignored",
+        {
+          status: 200
+        }
+      );
     }
 
     const session = event.data.object;
 
-    // Only process genuinely paid sessions
+    // --------------------------------------------------
+    // 2. Make sure payment was actually completed
+    // --------------------------------------------------
+
     if (session.payment_status !== "paid") {
-      return new Response("Payment not completed", {
-        status: 400
-      });
+      return new Response(
+        "Payment not completed",
+        {
+          status: 400
+        }
+      );
     }
 
-    const metadata = session.metadata || {};
+    // --------------------------------------------------
+    // 3. Get purchase metadata
+    // --------------------------------------------------
 
-    const ownerName = metadata.name;
-    const ownerEmail = metadata.email;
-    const destinationUrl = metadata.destination_url;
+    const metadata =
+      session.metadata || {};
 
-    if (!ownerName || !ownerEmail || !destinationUrl) {
-      console.log("Missing metadata:", metadata);
+    const ownerName =
+      metadata.name;
 
-      return new Response("Missing purchase metadata", {
-        status: 400
-      });
+    const ownerEmail =
+      metadata.email;
+
+    const destinationUrl =
+      metadata.destination_url;
+
+    if (
+      !ownerName ||
+      !ownerEmail ||
+      !destinationUrl
+    ) {
+
+      console.log(
+        "Missing metadata:",
+        metadata
+      );
+
+      return new Response(
+        "Missing purchase metadata",
+        {
+          status: 400
+        }
+      );
     }
 
-    const supabaseUrl = context.env.SUPABASE_URL;
-    const supabaseKey = context.env.SUPABASE_SECRET_KEY;
+    // --------------------------------------------------
+    // 4. Supabase connection
+    // --------------------------------------------------
+
+    const supabaseUrl =
+      context.env.SUPABASE_URL;
+
+    const supabaseKey =
+      context.env.SUPABASE_SECRET_KEY;
 
     const headers = {
       "apikey": supabaseKey,
-      "Authorization": `Bearer ${supabaseKey}`,
-      "Content-Type": "application/json"
+
+      "Authorization":
+        `Bearer ${supabaseKey}`,
+
+      "Content-Type":
+        "application/json"
     };
 
     // --------------------------------------------------
-    // 1. Check whether this sale already exists
+    // 5. Check whether this Stripe sale already exists
     // --------------------------------------------------
 
-    const existingResponse = await fetch(
-      `${supabaseUrl}/rest/v1/sales?stripe_payment_id=eq.${encodeURIComponent(session.id)}&select=*`,
-      {
-        headers
-      }
-    );
+    const existingResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/sales?stripe_payment_id=eq.${encodeURIComponent(session.id)}&select=*`,
+        {
+          headers
+        }
+      );
 
     if (!existingResponse.ok) {
+
       console.log(
         "Existing-sale check failed:",
         existingResponse.status,
         await existingResponse.text()
       );
 
-      return new Response("Database check failed", {
-        status: 500
-      });
+      return new Response(
+        "Database check failed",
+        {
+          status: 500
+        }
+      );
     }
 
-    const existingSales = await existingResponse.json();
+    const existingSales =
+      await existingResponse.json();
 
-    const alreadyProcessed = existingSales.length > 0;
+    const alreadyProcessed =
+      existingSales.length > 0;
 
     let recordedSale = null;
 
     if (alreadyProcessed) {
-      recordedSale = existingSales[0];
+
+      recordedSale =
+        existingSales[0];
 
       console.log(
         `Sale ${session.id} already recorded. Checking state update.`
@@ -176,52 +240,103 @@ export async function onRequestPost(context) {
     }
 
     // --------------------------------------------------
-    // 2. Get current BuyTheLink state
+    // 6. Get current BuyTheLink state
     // --------------------------------------------------
 
-    const stateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
-      {
-        headers
-      }
-    );
+    const stateResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
+        {
+          headers
+        }
+      );
 
     if (!stateResponse.ok) {
+
       console.log(
         "State lookup failed:",
         stateResponse.status,
         await stateResponse.text()
       );
 
-      return new Response("Unable to read site state", {
-        status: 500
-      });
+      return new Response(
+        "Unable to read site state",
+        {
+          status: 500
+        }
+      );
     }
 
-    const states = await stateResponse.json();
+    const states =
+      await stateResponse.json();
 
     if (!states.length) {
-      return new Response("Site state not found", {
-        status: 500
-      });
+
+      return new Response(
+        "Site state not found",
+        {
+          status: 500
+        }
+      );
     }
 
-    const state = states[0];
+    const state =
+      states[0];
 
     // --------------------------------------------------
-    // 3. Check whether the state has already been updated
+    // 7. Convert database price to Stripe pence
     // --------------------------------------------------
 
     /*
-      If the current price is already higher than the amount
-      paid for this session, this sale has already advanced
-      the BuyTheLink state.
+      Supabase stores the price in pounds.
 
-      Do NOT update it again.
+      Example:
+
+      £12.50 = 12.50
+
+      Stripe stores the amount in pence.
+
+      £12.50 = 1250
     */
 
-    if (alreadyProcessed &&
-        state.current_price > session.amount_total) {
+    const currentPrice =
+      Number(state.current_price);
+
+    const expectedStripeAmount =
+      Math.round(currentPrice * 100);
+
+    console.log(
+      "Current price:",
+      currentPrice
+    );
+
+    console.log(
+      "Stripe amount expected:",
+      expectedStripeAmount
+    );
+
+    console.log(
+      "Stripe amount received:",
+      session.amount_total
+    );
+
+    // --------------------------------------------------
+    // 8. Check whether state was already updated
+    // --------------------------------------------------
+
+    /*
+      If the sale has already been recorded and
+      the current price has moved beyond the amount
+      that was paid, the webhook has already completed.
+
+      Do not process it again.
+    */
+
+    if (
+      alreadyProcessed &&
+      currentPrice >
+      Number(session.amount_total) / 100
+    ) {
 
       console.log(
         "Sale already processed and site state already advanced."
@@ -234,33 +349,41 @@ export async function onRequestPost(context) {
         }),
         {
           status: 200,
+
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type":
+              "application/json"
           }
         }
       );
     }
 
     // --------------------------------------------------
-    // 4. Verify the amount paid
+    // 9. Verify the amount paid
     // --------------------------------------------------
 
-    if (session.amount_total !== state.current_price) {
+    if (
+      Number(session.amount_total) !==
+      expectedStripeAmount
+    ) {
 
       console.log(
-        "Incorrect amount:",
+        "Incorrect payment amount:",
         session.amount_total,
         "expected:",
-        state.current_price
+        expectedStripeAmount
       );
 
-      return new Response("Incorrect payment amount", {
-        status: 400
-      });
+      return new Response(
+        "Incorrect payment amount",
+        {
+          status: 400
+        }
+      );
     }
 
     // --------------------------------------------------
-    // 5. Determine sale number and next price
+    // 10. Determine sale number and new price
     // --------------------------------------------------
 
     let saleNumber;
@@ -269,18 +392,19 @@ export async function onRequestPost(context) {
     if (alreadyProcessed) {
 
       /*
-        The sale was recorded during the previous attempt,
-        but the state update failed.
+        The sale exists in the sales table,
+        but the site state wasn't updated.
 
-        Use the existing sale number rather than creating
-        another sale.
+        Re-use the existing sale number.
       */
 
-      saleNumber = recordedSale.sale_number;
+      saleNumber =
+        recordedSale.sale_number;
 
-      newPrice = Math.ceil(
-        state.current_price * 1.25
-      );
+      newPrice =
+        Math.ceil(
+          currentPrice * 1.25
+        );
 
       console.log(
         `Retrying state update for existing sale #${saleNumber}`
@@ -288,41 +412,68 @@ export async function onRequestPost(context) {
 
     } else {
 
-      saleNumber = state.sale_count + 1;
+      saleNumber =
+        Number(state.sale_count || 0) + 1;
 
-      newPrice = Math.ceil(
-        state.current_price * 1.25
+      newPrice =
+        Math.ceil(
+          currentPrice * 1.25
+        );
+
+      console.log(
+        `Processing new sale #${saleNumber}`
       );
-
     }
 
     // --------------------------------------------------
-    // 6. Record the sale if it doesn't already exist
+    // 11. Record sale
     // --------------------------------------------------
 
     if (!alreadyProcessed) {
 
-      const saleResponse = await fetch(
-        `${supabaseUrl}/rest/v1/sales`,
-        {
-          method: "POST",
+      const saleResponse =
+        await fetch(
+          `${supabaseUrl}/rest/v1/sales`,
+          {
+            method: "POST",
 
-          headers: {
-            ...headers,
-            "Prefer": "return=minimal"
-          },
+            headers: {
+              ...headers,
 
-          body: JSON.stringify({
-            sale_number: saleNumber,
-            owner_name: ownerName,
-            owner_email: ownerEmail,
-            destination_url: destinationUrl,
-            amount: session.amount_total,
-            currency: session.currency || "usd",
-            stripe_payment_id: session.id
-          })
-        }
-      );
+              "Prefer":
+                "return=minimal"
+            },
+
+            body: JSON.stringify({
+
+              sale_number:
+                saleNumber,
+
+              owner_name:
+                ownerName,
+
+              owner_email:
+                ownerEmail,
+
+              destination_url:
+                destinationUrl,
+
+              /*
+                Store amount in pounds,
+                matching current_price.
+              */
+
+              amount:
+                Number(session.amount_total) / 100,
+
+              currency:
+                session.currency || "gbp",
+
+              stripe_payment_id:
+                session.id
+            })
+          }
+        );
 
       if (!saleResponse.ok) {
 
@@ -332,9 +483,12 @@ export async function onRequestPost(context) {
           await saleResponse.text()
         );
 
-        return new Response("Unable to record sale", {
-          status: 500
-        });
+        return new Response(
+          "Unable to record sale",
+          {
+            status: 500
+          }
+        );
       }
 
       console.log(
@@ -343,71 +497,117 @@ export async function onRequestPost(context) {
     }
 
     // --------------------------------------------------
-    // 7. Update current BuyTheLink ownership
+    // 12. Update BuyTheLink state
     // --------------------------------------------------
 
-    const updateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/site_state?id=eq.1`,
-      {
-        method: "PATCH",
+    const updateResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/site_state?id=eq.1`,
+        {
+          method: "PATCH",
 
-        headers: {
-          ...headers,
-          "Prefer": "return=minimal"
-        },
+          headers: {
+            ...headers,
 
-       body: JSON.stringify({
-  current_price: Number(newPrice),
-  current_owner: ownerName,
-  current_email: ownerEmail,
-  current_url: destinationUrl,
-  sale_count: Number(saleNumber),
-  total_revenue:
-    Number(state.total_revenue || 0) +
-    Number(session.amount_total || 0),
-  updated_at: new Date().toISOString()
-})
+            "Prefer":
+              "return=minimal"
+          },
 
-      }
-    );
+          body: JSON.stringify({
 
-   if (!updateResponse.ok) {
+            current_price:
+              Number(newPrice),
 
-  const updateError = await updateResponse.text();
+            current_owner:
+              ownerName,
 
-  console.log(
-    "State update failed:",
-    updateResponse.status,
-    updateError
-  );
+            current_email:
+              ownerEmail,
 
-  return new Response(
-    `State update failed: ${updateResponse.status} ${updateError}`,
-    {
-      status: 500
+            current_url:
+              destinationUrl,
+
+            sale_count:
+              Number(saleNumber),
+
+            /*
+              Keep total_revenue in pounds.
+            */
+
+            total_revenue:
+              Number(state.total_revenue || 0) +
+              (
+                Number(session.amount_total || 0) /
+                100
+              ),
+
+            updated_at:
+              new Date().toISOString()
+          })
+        }
+      );
+
+    // --------------------------------------------------
+    // 13. Check state update
+    // --------------------------------------------------
+
+    if (!updateResponse.ok) {
+
+      const updateError =
+        await updateResponse.text();
+
+      console.log(
+        "State update failed:",
+        updateResponse.status,
+        updateError
+      );
+
+      return new Response(
+        `State update failed: ${updateResponse.status} ${updateError}`,
+        {
+          status: 500
+        }
+      );
     }
-  );
-}
-
 
     // --------------------------------------------------
-    // 8. Complete
+    // 14. Complete
     // --------------------------------------------------
 
     console.log(
-      `BuyTheLink sale #${saleNumber} completed. New price: ${newPrice}`
+      `BuyTheLink sale #${saleNumber} completed.`
+    );
+
+    console.log(
+      `Old price: £${currentPrice}`
+    );
+
+    console.log(
+      `New price: £${newPrice}`
     );
 
     return new Response(
       JSON.stringify({
-        success: true,
-        sale_number: saleNumber,
-        new_price: newPrice
+
+        success:
+          true,
+
+        sale_number:
+          saleNumber,
+
+        old_price:
+          currentPrice,
+
+        new_price:
+          newPrice
+
       }),
       {
         status: 200,
+
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type":
+            "application/json"
         }
       }
     );
