@@ -56,8 +56,20 @@
             font-size: 20px;
             color: #aaa;
             max-width: 600px;
-            margin: 0 auto 45px;
+            margin: 0 auto 30px;
             line-height: 1.5;
+        }
+
+        .visit-link {
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+            margin-bottom: 45px;
+        }
+
+        .visit-link:hover {
+            opacity: 0.7;
         }
 
         .price-label {
@@ -87,6 +99,18 @@
 
         .buy-button:hover {
             opacity: 0.85;
+        }
+
+        .current-owner,
+        .visitor-count {
+            margin-top: 20px;
+            color: #777;
+            font-size: 14px;
+        }
+
+        .current-owner strong,
+        .visitor-count strong {
+            color: #fff;
         }
 
         .card {
@@ -217,7 +241,9 @@
 
     <header>
         <div class="logo">BUYTHELINK.COM</div>
-        <div class="tagline">The internet's most expensive link.</div>
+        <div class="tagline">
+            The internet's most expensive link.
+        </div>
     </header>
 
     <main class="hero">
@@ -229,46 +255,47 @@
             Buy it, choose where it goes,
             and become part of internet history.
         </p>
-<a
-  href="/api/redirect"
-  target="_blank"
-  rel="noopener noreferrer"
-  class="visit-link"
->
-  VISIT THE LINK →
-</a>
 
-        <div class="price-label">Current price</div>
+        <a
+            href="/api/redirect"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="visit-link"
+        >
+            VISIT THE LINK →
+        </a>
 
-        <div class="price">$12.50</div>
+        <div class="price-label">
+            Current price
+        </div>
 
-        <button class="buy-button" onclick="openPurchase()">
+        <!-- Price is loaded from Supabase -->
+        <div class="price" id="current-price">
+            Loading...
+        </div>
+
+        <button
+            class="buy-button"
+            onclick="openPurchase()"
+        >
             BUY THE LINK
         </button>
 
+        <div class="current-owner">
+            Currently owned by
+            <strong id="current-owner">
+                Loading...
+            </strong>
+        </div>
 
-        
-<div class="current-owner">
-  Currently owned by <strong id="current-owner">Loading...</strong>
-</div>
-       <div class="visitor-count">
-  👁 <strong id="visitor-count">Loading...</strong> people have visited
-</div>
-<script>
-fetch('/api/visitors')
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById('visitor-count').textContent =
-      data.visitors;
-  })
-  .catch(error => {
-    console.error(error);
-  });
-</script>
+        <div class="visitor-count">
+            👁
+            <strong id="visitor-count">
+                Loading...
+            </strong>
+            people have visited
+        </div>
 
-        
-
-        
     </main>
 
     <section class="card">
@@ -300,19 +327,35 @@ fetch('/api/visitors')
 
 <!-- Purchase window -->
 
-<div class="overlay" id="purchaseOverlay">
+<div
+    class="overlay"
+    id="purchaseOverlay"
+>
 
     <div class="modal">
 
-        <button class="close" onclick="closePurchase()">×</button>
+        <button
+            class="close"
+            onclick="closePurchase()"
+        >
+            ×
+        </button>
 
-        <h2>Buy the link</h2>
+        <h2>
+            Buy the link
+        </h2>
 
-        <div class="modal-price">$<span id="modal-price">12.50</span></div>
+        <div class="modal-price">
+            <span id="modal-price">
+                Loading...
+            </span>
+        </div>
 
         <form id="purchaseForm">
 
-            <label for="name">Your name</label>
+            <label for="name">
+                Your name
+            </label>
 
             <input
                 id="name"
@@ -322,7 +365,9 @@ fetch('/api/visitors')
                 required
             >
 
-            <label for="email">Email address</label>
+            <label for="email">
+                Email address
+            </label>
 
             <input
                 id="email"
@@ -332,7 +377,9 @@ fetch('/api/visitors')
                 required
             >
 
-            <label for="url">Where should the link go?</label>
+            <label for="url">
+                Where should the link go?
+            </label>
 
             <input
                 id="url"
@@ -350,11 +397,14 @@ fetch('/api/visitors')
                 CONTINUE TO PAYMENT
             </button>
 
-            <div class="error" id="errorMessage"></div>
+            <div
+                class="error"
+                id="errorMessage"
+            ></div>
 
             <div class="note">
-                You'll be taken to Stripe's secure checkout to complete
-                your purchase.
+                You'll be taken to Stripe's secure checkout
+                to complete your purchase.
             </div>
 
         </form>
@@ -366,150 +416,349 @@ fetch('/api/visitors')
 
 <script>
 
+    // ---------------------------------------------
+    // Open / close purchase window
+    // ---------------------------------------------
+
     function openPurchase() {
-        document.getElementById("purchaseOverlay").style.display = "block";
-        document.getElementById("name").focus();
+        document.getElementById(
+            "purchaseOverlay"
+        ).style.display = "block";
+
+        document.getElementById(
+            "name"
+        ).focus();
     }
 
     function closePurchase() {
-        document.getElementById("purchaseOverlay").style.display = "none";
+        document.getElementById(
+            "purchaseOverlay"
+        ).style.display = "none";
     }
 
-    document
-        .getElementById("purchaseForm")
-        .addEventListener("submit", async function(event) {
 
-            event.preventDefault();
+    // ---------------------------------------------
+    // Load current price
+    // ---------------------------------------------
 
-            const button =
-                document.getElementById("checkoutButton");
+    async function loadCurrentPrice() {
 
-            const error =
-                document.getElementById("errorMessage");
+        try {
 
-            error.style.display = "none";
-
-            button.disabled = true;
-            button.textContent = "CREATING CHECKOUT...";
-
-            const name =
-                document.getElementById("name").value.trim();
-
-            const email =
-                document.getElementById("email").value.trim();
-
-            const url =
-                document.getElementById("url").value.trim();
-
-            try {
-
-                const response = await fetch(
-                    "/api/create-checkout",
+            const response =
+                await fetch(
+                    "/api/price",
                     {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            name,
-                            email,
-                            url
-                        })
+                        cache: "no-store"
                     }
                 );
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        data.error || "Unable to create checkout."
-                    );
-                }
-
-                window.location.href = data.url;
-
-            } catch (err) {
-
-                error.textContent = err.message;
-                error.style.display = "block";
-
-                button.disabled = false;
-                button.textContent = "CONTINUE TO PAYMENT";
+            if (!response.ok) {
+                throw new Error(
+                    "Price unavailable"
+                );
             }
 
-        });
+            const data =
+                await response.json();
 
-</script>
-async function loadCurrentPrice() {
-  try {
-    const response = await fetch('/api/price');
+            /*
+                Supabase stores price in pence.
 
-    if (!response.ok) {
-      throw new Error('Price unavailable');
+                Example:
+
+                1563 = £15.63
+
+                Convert pence to pounds for display.
+            */
+
+            const price =
+                Number(data.price) / 100;
+
+            const formattedPrice =
+                new Intl.NumberFormat(
+                    "en-GB",
+                    {
+                        style: "currency",
+                        currency: "GBP"
+                    }
+                ).format(price);
+
+
+            // Main page price
+
+            const priceElement =
+                document.getElementById(
+                    "current-price"
+                );
+
+            if (priceElement) {
+                priceElement.textContent =
+                    formattedPrice;
+            }
+
+
+            // Purchase modal price
+
+            const modalPrice =
+                document.getElementById(
+                    "modal-price"
+                );
+
+            if (modalPrice) {
+                modalPrice.textContent =
+                    formattedPrice;
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Could not load current price:",
+                error
+            );
+
+            const priceElement =
+                document.getElementById(
+                    "current-price"
+                );
+
+            if (priceElement) {
+                priceElement.textContent =
+                    "Price unavailable";
+            }
+
+            const modalPrice =
+                document.getElementById(
+                    "modal-price"
+                );
+
+            if (modalPrice) {
+                modalPrice.textContent =
+                    "Price unavailable";
+            }
+        }
     }
 
-    const data = await response.json();
 
-    const priceElement = document.getElementById('modal-price');
+    // ---------------------------------------------
+    // Load current owner
+    // ---------------------------------------------
 
-    if (priceElement) {
-      priceElement.textContent = (data.price / 100).toFixed(2);
+    async function loadCurrentOwner() {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/owner",
+                    {
+                        cache: "no-store"
+                    }
+                );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Owner unavailable"
+                );
+            }
+
+            const data =
+                await response.json();
+
+            const ownerElement =
+                document.getElementById(
+                    "current-owner"
+                );
+
+            if (ownerElement) {
+
+                ownerElement.textContent =
+                    data.owner ||
+                    "No owner yet";
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Could not load current owner:",
+                error
+            );
+        }
     }
 
-  } catch (error) {
-    console.error('Could not load modal price:', error);
-  }
-}
-async function loadCurrentOwner() {
-  try {
-    const response = await fetch(
-      '/api/owner'
-    );
 
-    if (!response.ok) {
-      throw new Error('Owner unavailable');
+    // ---------------------------------------------
+    // Load visitor count
+    // ---------------------------------------------
+
+    async function loadVisitors() {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/visitors",
+                    {
+                        cache: "no-store"
+                    }
+                );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Visitor API failed"
+                );
+            }
+
+            const data =
+                await response.json();
+
+            const element =
+                document.getElementById(
+                    "visitor-count"
+                );
+
+            if (element) {
+
+                element.textContent =
+                    Number(
+                        data.visitors || 0
+                    ).toLocaleString(
+                        "en-GB"
+                    );
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Visitor counter error:",
+                error
+            );
+        }
     }
 
-    const data = await response.json();
 
-    const ownerElement =
-      document.getElementById('current-owner');
+    // ---------------------------------------------
+    // Create Stripe checkout
+    // ---------------------------------------------
 
-    if (ownerElement) {
-      ownerElement.textContent =
-        data.owner || 'No owner yet';
-    }
+    document
+        .getElementById("purchaseForm")
+        .addEventListener(
+            "submit",
+            async function(event) {
 
-  } catch (error) {
-    console.error(
-      'Could not load current owner:',
-      error
-    );
-  }
-}
+                event.preventDefault();
 
-loadCurrentOwner();
+                const button =
+                    document.getElementById(
+                        "checkoutButton"
+                    );
 
-loadmodalPrice();
-    
-  fetch('/api/visitors')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Visitor API failed');
-    }
-    return response.json();
-  })
-  .then(data => {
-    const element = document.getElementById('visitor-count');
+                const error =
+                    document.getElementById(
+                        "errorMessage"
+                    );
 
-    if (element) {
-      element.textContent = Number(data.visitors).toLocaleString();
-    }
-  })
-  .catch(error => {
-    console.error('Visitor counter error:', error);
-  });
+                error.style.display =
+                    "none";
 
+                button.disabled =
+                    true;
+
+                button.textContent =
+                    "CREATING CHECKOUT...";
+
+
+                const name =
+                    document
+                        .getElementById("name")
+                        .value
+                        .trim();
+
+                const email =
+                    document
+                        .getElementById("email")
+                        .value
+                        .trim();
+
+                const url =
+                    document
+                        .getElementById("url")
+                        .value
+                        .trim();
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "/api/create-checkout",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        name,
+                                        email,
+                                        url
+                                    })
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            data.error ||
+                            "Unable to create checkout."
+                        );
+                    }
+
+
+                    window.location.href =
+                        data.url;
+
+
+                } catch (err) {
+
+                    console.error(
+                        "Checkout error:",
+                        err
+                    );
+
+                    error.textContent =
+                        err.message;
+
+                    error.style.display =
+                        "block";
+
+                    button.disabled =
+                        false;
+
+                    button.textContent =
+                        "CONTINUE TO PAYMENT";
+                }
+
+            }
+        );
+
+
+    // ---------------------------------------------
+    // Load everything when page opens
+    // ---------------------------------------------
+
+    loadCurrentPrice();
+    loadCurrentOwner();
+    loadVisitors();
 
 </script>
 
