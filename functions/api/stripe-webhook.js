@@ -1,17 +1,29 @@
 export async function onRequestPost(context) {
 
-  async function verifyStripeSignature(body, signature, secret) {
+  // ==================================================
+  // Verify Stripe webhook signature
+  // ==================================================
+
+  async function verifyStripeSignature(
+    body,
+    signature,
+    secret
+  ) {
+
     if (!signature || !secret) {
       return false;
     }
 
-    const parts = signature.split(",");
+    const parts =
+      signature.split(",");
 
     let timestamp = null;
     const signatures = [];
 
     for (const part of parts) {
-      const [key, value] = part.split("=");
+
+      const [key, value] =
+        part.split("=");
 
       if (key === "t") {
         timestamp = value;
@@ -22,52 +34,74 @@ export async function onRequestPost(context) {
       }
     }
 
-    if (!timestamp || signatures.length === 0) {
+    if (
+      !timestamp ||
+      signatures.length === 0
+    ) {
       return false;
     }
 
     const timestampAge =
-      Math.floor(Date.now() / 1000) - Number(timestamp);
+      Math.floor(Date.now() / 1000) -
+      Number(timestamp);
 
     // Reject signatures older than 5 minutes
-    if (Math.abs(timestampAge) > 300) {
+
+    if (
+      Math.abs(timestampAge) > 300
+    ) {
       return false;
     }
 
-    const signedPayload = `${timestamp}.${body}`;
-    const encoder = new TextEncoder();
+    const signedPayload =
+      `${timestamp}.${body}`;
 
-    const key = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(secret),
-      {
-        name: "HMAC",
-        hash: "SHA-256"
-      },
-      false,
-      ["verify"]
-    );
+    const encoder =
+      new TextEncoder();
 
-    for (const signatureValue of signatures) {
+    const key =
+      await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        {
+          name: "HMAC",
+          hash: "SHA-256"
+        },
+        false,
+        ["verify"]
+      );
+
+    for (
+      const signatureValue of signatures
+    ) {
+
       try {
-        const signatureBytes = new Uint8Array(
-          signatureValue
-            .match(/.{1,2}/g)
-            .map(byte => parseInt(byte, 16))
-        );
 
-        const valid = await crypto.subtle.verify(
-          "HMAC",
-          key,
-          signatureBytes,
-          encoder.encode(signedPayload)
-        );
+        const signatureBytes =
+          new Uint8Array(
+            signatureValue
+              .match(/.{1,2}/g)
+              .map(byte =>
+                parseInt(byte, 16)
+              )
+          );
+
+        const valid =
+          await crypto.subtle.verify(
+            "HMAC",
+            key,
+            signatureBytes,
+            encoder.encode(
+              signedPayload
+            )
+          );
 
         if (valid) {
           return true;
         }
 
       } catch (error) {
+
         console.log(
           "Signature verification error:",
           error
@@ -78,24 +112,30 @@ export async function onRequestPost(context) {
     return false;
   }
 
+
   try {
 
-    // --------------------------------------------------
-    // 0. Verify Stripe webhook signature
-    // --------------------------------------------------
+    // ==================================================
+    // 0. Verify Stripe signature
+    // ==================================================
 
-    const body = await context.request.text();
+    const body =
+      await context.request.text();
 
     const stripeSignature =
-      context.request.headers.get("Stripe-Signature");
+      context.request.headers.get(
+        "Stripe-Signature"
+      );
 
-    const isValid = await verifyStripeSignature(
-      body,
-      stripeSignature,
-      context.env.STRIPE_WEBHOOK_SECRET
-    );
+    const isValid =
+      await verifyStripeSignature(
+        body,
+        stripeSignature,
+        context.env.STRIPE_WEBHOOK_SECRET
+      );
 
     if (!isValid) {
+
       return new Response(
         "Invalid Stripe signature",
         {
@@ -104,17 +144,22 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
+
+    // ==================================================
     // 1. Read Stripe event
-    // --------------------------------------------------
+    // ==================================================
 
-    const event = JSON.parse(body);
+    const event =
+      JSON.parse(body);
 
-    // We only care about completed Checkout Sessions
+
+    // Only process completed Checkout Sessions
+
     if (
       event.type !==
       "checkout.session.completed"
     ) {
+
       return new Response(
         "Event ignored",
         {
@@ -123,13 +168,20 @@ export async function onRequestPost(context) {
       );
     }
 
-    const session = event.data.object;
 
-    // --------------------------------------------------
-    // 2. Make sure payment was actually completed
-    // --------------------------------------------------
+    const session =
+      event.data.object;
 
-    if (session.payment_status !== "paid") {
+
+    // ==================================================
+    // 2. Make sure payment was completed
+    // ==================================================
+
+    if (
+      session.payment_status !==
+      "paid"
+    ) {
+
       return new Response(
         "Payment not completed",
         {
@@ -138,9 +190,10 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
-    // 3. Get purchase metadata
-    // --------------------------------------------------
+
+    // ==================================================
+    // 3. Get metadata
+    // ==================================================
 
     const metadata =
       session.metadata || {};
@@ -153,6 +206,7 @@ export async function onRequestPost(context) {
 
     const destinationUrl =
       metadata.destination_url;
+
 
     if (
       !ownerName ||
@@ -173,9 +227,10 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
+
+    // ==================================================
     // 4. Supabase connection
-    // --------------------------------------------------
+    // ==================================================
 
     const supabaseUrl =
       context.env.SUPABASE_URL;
@@ -184,7 +239,9 @@ export async function onRequestPost(context) {
       context.env.SUPABASE_SECRET_KEY;
 
     const headers = {
-      "apikey": supabaseKey,
+
+      "apikey":
+        supabaseKey,
 
       "Authorization":
         `Bearer ${supabaseKey}`,
@@ -193,9 +250,10 @@ export async function onRequestPost(context) {
         "application/json"
     };
 
-    // --------------------------------------------------
-    // 5. Check whether this Stripe sale already exists
-    // --------------------------------------------------
+
+    // ==================================================
+    // 5. Check whether sale already exists
+    // ==================================================
 
     const existingResponse =
       await fetch(
@@ -204,6 +262,7 @@ export async function onRequestPost(context) {
           headers
         }
       );
+
 
     if (!existingResponse.ok) {
 
@@ -221,6 +280,7 @@ export async function onRequestPost(context) {
       );
     }
 
+
     const existingSales =
       await existingResponse.json();
 
@@ -229,19 +289,21 @@ export async function onRequestPost(context) {
 
     let recordedSale = null;
 
+
     if (alreadyProcessed) {
 
       recordedSale =
         existingSales[0];
 
       console.log(
-        `Sale ${session.id} already recorded. Checking state update.`
+        `Sale ${session.id} already exists.`
       );
     }
 
-    // --------------------------------------------------
-    // 6. Get current BuyTheLink state
-    // --------------------------------------------------
+
+    // ==================================================
+    // 6. Get current site state
+    // ==================================================
 
     const stateResponse =
       await fetch(
@@ -250,6 +312,7 @@ export async function onRequestPost(context) {
           headers
         }
       );
+
 
     if (!stateResponse.ok) {
 
@@ -267,8 +330,10 @@ export async function onRequestPost(context) {
       );
     }
 
+
     const states =
       await stateResponse.json();
+
 
     if (!states.length) {
 
@@ -280,72 +345,82 @@ export async function onRequestPost(context) {
       );
     }
 
+
     const state =
       states[0];
 
-    // --------------------------------------------------
-    // 7. Convert database price to Stripe pence
-    // --------------------------------------------------
 
-    /*
-      Supabase stores the price in pounds.
-
-      Example:
-
-      £12.50 = 12.50
-
-      Stripe stores the amount in pence.
-
-      £12.50 = 1250
-    */
+    // ==================================================
+    // 7. Price handling
+    //
+    // IMPORTANT:
+    //
+    // current_price is stored in PENCE.
+    //
+    // Example:
+    //
+    // 1250 = £12.50
+    // 1563 = £15.63
+    //
+    // Stripe also uses pence.
+    // ==================================================
 
     const currentPrice =
       Number(state.current_price);
 
-    const expectedStripeAmount =
-      Math.round(currentPrice * 100);
+    const stripeAmount =
+      Number(session.amount_total);
 
-    console.log(
-      "Current price:",
-      currentPrice
-    );
 
-    console.log(
-      "Stripe amount expected:",
-      expectedStripeAmount
-    );
+    if (
+      !Number.isInteger(currentPrice) ||
+      currentPrice <= 0
+    ) {
 
-    console.log(
-      "Stripe amount received:",
-      session.amount_total
-    );
+      console.log(
+        "Invalid current price:",
+        currentPrice
+      );
 
-    // --------------------------------------------------
+      return new Response(
+        "Invalid current price",
+        {
+          status: 500
+        }
+      );
+    }
+
+
+    // ==================================================
     // 8. Check whether state was already updated
-    // --------------------------------------------------
+    // ==================================================
 
     /*
-      If the sale has already been recorded and
-      the current price has moved beyond the amount
-      that was paid, the webhook has already completed.
+      If the sale exists and the current price
+      has already moved above the amount paid,
+      the webhook has already completed.
 
       Do not process it again.
     */
 
     if (
       alreadyProcessed &&
-      currentPrice >
-      Number(session.amount_total) / 100
+      currentPrice > stripeAmount
     ) {
 
       console.log(
-        "Sale already processed and site state already advanced."
+        "Sale already processed and state already advanced."
       );
 
       return new Response(
         JSON.stringify({
-          success: true,
-          message: "Already processed"
+
+          success:
+            true,
+
+          message:
+            "Already processed"
+
         }),
         {
           status: 200,
@@ -358,20 +433,22 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
-    // 9. Verify the amount paid
-    // --------------------------------------------------
+
+    // ==================================================
+    // 9. Verify payment amount
+    // ==================================================
 
     if (
-      Number(session.amount_total) !==
-      expectedStripeAmount
+      stripeAmount !==
+      currentPrice
     ) {
 
       console.log(
         "Incorrect payment amount:",
-        session.amount_total,
+        stripeAmount,
+
         "expected:",
-        expectedStripeAmount
+        currentPrice
       );
 
       return new Response(
@@ -382,24 +459,29 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
-    // 10. Determine sale number and new price
-    // --------------------------------------------------
+
+    // ==================================================
+    // 10. Determine sale number
+    //     and next price
+    // ==================================================
 
     let saleNumber;
     let newPrice;
 
+
     if (alreadyProcessed) {
 
       /*
-        The sale exists in the sales table,
-        but the site state wasn't updated.
+        Sale exists but site state wasn't
+        successfully updated.
 
         Re-use the existing sale number.
       */
 
       saleNumber =
-        recordedSale.sale_number;
+        Number(
+          recordedSale.sale_number
+        );
 
       newPrice =
         Math.ceil(
@@ -407,13 +489,15 @@ export async function onRequestPost(context) {
         );
 
       console.log(
-        `Retrying state update for existing sale #${saleNumber}`
+        `Retrying state update for sale #${saleNumber}`
       );
 
     } else {
 
       saleNumber =
-        Number(state.sale_count || 0) + 1;
+        Number(
+          state.sale_count || 0
+        ) + 1;
 
       newPrice =
         Math.ceil(
@@ -425,9 +509,10 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
+
+    // ==================================================
     // 11. Record sale
-    // --------------------------------------------------
+    // ==================================================
 
     if (!alreadyProcessed) {
 
@@ -459,21 +544,23 @@ export async function onRequestPost(context) {
                 destinationUrl,
 
               /*
-                Store amount in pounds,
+                Store the amount in pence,
                 matching current_price.
               */
 
               amount:
-                Number(session.amount_total) / 100,
+                stripeAmount,
 
               currency:
-                session.currency || "gbp",
+                session.currency ||
+                "gbp",
 
               stripe_payment_id:
                 session.id
             })
           }
         );
+
 
       if (!saleResponse.ok) {
 
@@ -491,14 +578,33 @@ export async function onRequestPost(context) {
         );
       }
 
+
       console.log(
         `Sale #${saleNumber} recorded successfully.`
       );
     }
 
-    // --------------------------------------------------
-    // 12. Update BuyTheLink state
-    // --------------------------------------------------
+
+    // ==================================================
+    // 12. Update site state
+    // ==================================================
+
+    /*
+      total_revenue is also stored in pence.
+
+      Example:
+
+      £12.50 + £10.00
+      = 1250 + 1000
+      = 2250
+    */
+
+    const newTotalRevenue =
+      Number(
+        state.total_revenue || 0
+      ) +
+      stripeAmount;
+
 
     const updateResponse =
       await fetch(
@@ -530,16 +636,8 @@ export async function onRequestPost(context) {
             sale_count:
               Number(saleNumber),
 
-            /*
-              Keep total_revenue in pounds.
-            */
-
             total_revenue:
-              Number(state.total_revenue || 0) +
-              (
-                Number(session.amount_total || 0) /
-                100
-              ),
+              Number(newTotalRevenue),
 
             updated_at:
               new Date().toISOString()
@@ -547,9 +645,10 @@ export async function onRequestPost(context) {
         }
       );
 
-    // --------------------------------------------------
-    // 13. Check state update
-    // --------------------------------------------------
+
+    // ==================================================
+    // 13. Check update
+    // ==================================================
 
     if (!updateResponse.ok) {
 
@@ -570,21 +669,29 @@ export async function onRequestPost(context) {
       );
     }
 
-    // --------------------------------------------------
+
+    // ==================================================
     // 14. Complete
-    // --------------------------------------------------
+    // ==================================================
 
     console.log(
       `BuyTheLink sale #${saleNumber} completed.`
     );
 
     console.log(
-      `Old price: £${currentPrice}`
+      `Old price: ${currentPrice} pence`
     );
 
     console.log(
-      `New price: £${newPrice}`
+      `New price: ${newPrice} pence`
     );
+
+    console.log(
+      `New price: £${(
+        newPrice / 100
+      ).toFixed(2)}`
+    );
+
 
     return new Response(
       JSON.stringify({
@@ -599,7 +706,12 @@ export async function onRequestPost(context) {
           currentPrice,
 
         new_price:
-          newPrice
+          newPrice,
+
+        new_price_display:
+          `£${(
+            newPrice / 100
+          ).toFixed(2)}`
 
       }),
       {
@@ -611,6 +723,7 @@ export async function onRequestPost(context) {
         }
       }
     );
+
 
   } catch (error) {
 
