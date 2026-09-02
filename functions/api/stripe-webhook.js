@@ -1,26 +1,68 @@
 export async function onRequestPost(context) {
+  try {
 
-  // ==================================================
-  // Verify Stripe webhook signature
-  // ==================================================
+    // --------------------------------------------
+    // Environment variables
+    // --------------------------------------------
 
-  async function verifyStripeSignature(
-    body,
-    signature,
-    secret
-  ) {
+    const stripeWebhookSecret =
+      context.env.STRIPE_WEBHOOK_SECRET;
 
-    if (!signature || !secret) {
-      return false;
+    const supabaseUrl =
+      context.env.SUPABASE_URL;
+
+    const supabaseKey =
+      context.env.SUPABASE_SECRET_KEY;
+
+    if (
+      !stripeWebhookSecret ||
+      !supabaseUrl ||
+      !supabaseKey
+    ) {
+      console.log(
+        "Missing webhook environment variables"
+      );
+
+      return new Response(
+        "Server configuration error",
+        {
+          status: 500
+        }
+      );
     }
 
-    const parts =
+    // --------------------------------------------
+    // Read Stripe request
+    // --------------------------------------------
+
+    const payload =
+      await context.request.text();
+
+    const signature =
+      context.request.headers.get(
+        "Stripe-Signature"
+      );
+
+    if (!signature) {
+      return new Response(
+        "Missing Stripe signature",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Verify Stripe signature
+    // --------------------------------------------
+
+    const signatureParts =
       signature.split(",");
 
     let timestamp = null;
     const signatures = [];
 
-    for (const part of parts) {
+    for (const part of signatureParts) {
 
       const [key, value] =
         part.split("=");
@@ -34,108 +76,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    if (
-      !timestamp ||
-      signatures.length === 0
-    ) {
-      return false;
-    }
-
-    const timestampAge =
-      Math.floor(Date.now() / 1000) -
-      Number(timestamp);
-
-    // Reject signatures older than 5 minutes
-
-    if (
-      Math.abs(timestampAge) > 300
-    ) {
-      return false;
-    }
-
-    const signedPayload =
-      `${timestamp}.${body}`;
-
-    const encoder =
-      new TextEncoder();
-
-    const key =
-      await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(secret),
-        {
-          name: "HMAC",
-          hash: "SHA-256"
-        },
-        false,
-        ["verify"]
-      );
-
-    for (
-      const signatureValue of signatures
-    ) {
-
-      try {
-
-        const signatureBytes =
-          new Uint8Array(
-            signatureValue
-              .match(/.{1,2}/g)
-              .map(byte =>
-                parseInt(byte, 16)
-              )
-          );
-
-        const valid =
-          await crypto.subtle.verify(
-            "HMAC",
-            key,
-            signatureBytes,
-            encoder.encode(
-              signedPayload
-            )
-          );
-
-        if (valid) {
-          return true;
-        }
-
-      } catch (error) {
-
-        console.log(
-          "Signature verification error:",
-          error
-        );
-      }
-    }
-
-    return false;
-  }
-
-
-  try {
-
-    // ==================================================
-    // 0. Verify Stripe signature
-    // ==================================================
-
-    const body =
-      await context.request.text();
-
-    const stripeSignature =
-      context.request.headers.get(
-        "Stripe-Signature"
-      );
-
-    const isValid =
-      await verifyStripeSignature(
-        body,
-        stripeSignature,
-        context.env.STRIPE_WEBHOOK_SECRET
-      );
-
-    if (!isValid) {
-
+    if (!timestamp || signatures.length === 0) {
       return new Response(
         "Invalid Stripe signature",
         {
@@ -144,287 +85,145 @@ export async function onRequestPost(context) {
       );
     }
 
+    const timestampNumber =
+      Number(timestamp);
 
-    // ==================================================
-    // 1. Read Stripe event
-    // ==================================================
+    if (!Number.isFinite(timestampNumber)) {
+      return new Response(
+        "Invalid Stripe timestamp",
+        {
+          status: 400
+        }
+      );
+    }
 
-    const event =
-      JSON.parse(body);
+    // --------------------------------------------
+    // 5 minute replay protection
+    // --------------------------------------------
 
+    const currentUnixTime =
+      Math.floor(Date.now() / 1000);
 
-    // Only process completed Checkout Sessions
+    if (
+      Math.abs(
+        currentUnixTime -
+        timestampNumber
+      ) > 300
+    ) {
+      return new Response(
+        "Webhook timestamp too old",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // HMAC SHA-256
+    // --------------------------------------------
+
+    const signedPayload =
+      `${timestamp}.${payload}`;
+
+    const encoder =
+      new TextEncoder();
+
+    const keyData =
+      encoder.encode(
+        stripeWebhookSecret
+      );
+
+    const cryptoKey =
+      await crypto.subtle.importKey(
+        "raw",
+        keyData,
+        {
+          name: "HMAC",
+          hash: "SHA-256"
+        },
+        false,
+        ["sign"]
+      );
+
+    const signatureBuffer =
+      await crypto.subtle.sign(
+        "HMAC",
+        cryptoKey,
+        encoder.encode(
+          signedPayload
+        )
+      );
+
+    const generatedSignature =
+      Array.from(
+        new Uint8Array(
+          signatureBuffer
+        )
+      )
+        .map(
+          byte =>
+            byte
+              .toString(16)
+              .padStart(2, "0")
+        )
+        .join("");
+
+    // --------------------------------------------
+    // Compare signatures
+    // --------------------------------------------
+
+    const validSignature =
+      signatures.some(
+        signatureValue =>
+          signatureValue ===
+          generatedSignature
+      );
+
+    if (!validSignature) {
+      console.log(
+        "Invalid Stripe signature"
+      );
+
+      return new Response(
+        "Invalid signature",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Parse event
+    // --------------------------------------------
+
+    let event;
+
+    try {
+      event =
+        JSON.parse(payload);
+    } catch {
+      return new Response(
+        "Invalid JSON",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // We only care about completed checkout
+    // --------------------------------------------
 
     if (
       event.type !==
       "checkout.session.completed"
     ) {
-
-      return new Response(
-        "Event ignored",
-        {
-          status: 200
-        }
-      );
-    }
-
-
-    const session =
-      event.data.object;
-
-
-    // ==================================================
-    // 2. Make sure payment was completed
-    // ==================================================
-
-    if (
-      session.payment_status !==
-      "paid"
-    ) {
-
-      return new Response(
-        "Payment not completed",
-        {
-          status: 400
-        }
-      );
-    }
-
-
-    // ==================================================
-    // 3. Get metadata
-    // ==================================================
-
-    const metadata =
-      session.metadata || {};
-
-    const ownerName =
-      metadata.name;
-
-    const ownerEmail =
-      metadata.email;
-
-    const destinationUrl =
-      metadata.destination_url;
-
-
-    if (
-      !ownerName ||
-      !ownerEmail ||
-      !destinationUrl
-    ) {
-
-      console.log(
-        "Missing metadata:",
-        metadata
-      );
-
-      return new Response(
-        "Missing purchase metadata",
-        {
-          status: 400
-        }
-      );
-    }
-
-
-    // ==================================================
-    // 4. Supabase connection
-    // ==================================================
-
-    const supabaseUrl =
-      context.env.SUPABASE_URL;
-
-    const supabaseKey =
-      context.env.SUPABASE_SECRET_KEY;
-
-    const headers = {
-
-      "apikey":
-        supabaseKey,
-
-      "Authorization":
-        `Bearer ${supabaseKey}`,
-
-      "Content-Type":
-        "application/json"
-    };
-
-
-    // ==================================================
-    // 5. Check whether sale already exists
-    // ==================================================
-
-    const existingResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/sales?stripe_payment_id=eq.${encodeURIComponent(session.id)}&select=*`,
-        {
-          headers
-        }
-      );
-
-
-    if (!existingResponse.ok) {
-
-      console.log(
-        "Existing-sale check failed:",
-        existingResponse.status,
-        await existingResponse.text()
-      );
-
-      return new Response(
-        "Database check failed",
-        {
-          status: 500
-        }
-      );
-    }
-
-
-    const existingSales =
-      await existingResponse.json();
-
-    const alreadyProcessed =
-      existingSales.length > 0;
-
-    let recordedSale = null;
-
-
-    if (alreadyProcessed) {
-
-      recordedSale =
-        existingSales[0];
-
-      console.log(
-        `Sale ${session.id} already exists.`
-      );
-    }
-
-
-    // ==================================================
-    // 6. Get current site state
-    // ==================================================
-
-    const stateResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
-        {
-          headers
-        }
-      );
-
-
-    if (!stateResponse.ok) {
-
-      console.log(
-        "State lookup failed:",
-        stateResponse.status,
-        await stateResponse.text()
-      );
-
-      return new Response(
-        "Unable to read site state",
-        {
-          status: 500
-        }
-      );
-    }
-
-
-    const states =
-      await stateResponse.json();
-
-
-    if (!states.length) {
-
-      return new Response(
-        "Site state not found",
-        {
-          status: 500
-        }
-      );
-    }
-
-
-    const state =
-      states[0];
-
-
-    // ==================================================
-    // 7. Price handling
-    //
-    // IMPORTANT:
-    //
-    // current_price is stored in PENCE.
-    //
-    // Example:
-    //
-    // 1250 = £12.50
-    // 1563 = £15.63
-    //
-    // Stripe also uses pence.
-    // ==================================================
-
-    const currentPrice =
-      Number(state.current_price);
-
-    const stripeAmount =
-      Number(session.amount_total);
-
-
-    if (
-      !Number.isInteger(currentPrice) ||
-      currentPrice <= 0
-    ) {
-
-      console.log(
-        "Invalid current price:",
-        currentPrice
-      );
-
-      return new Response(
-        "Invalid current price",
-        {
-          status: 500
-        }
-      );
-    }
-
-
-    // ==================================================
-    // 8. Check whether state was already updated
-    // ==================================================
-
-    /*
-      If the sale exists and the current price
-      has already moved above the amount paid,
-      the webhook has already completed.
-
-      Do not process it again.
-    */
-
-    if (
-      alreadyProcessed &&
-      currentPrice > stripeAmount
-    ) {
-
-      console.log(
-        "Sale already processed and state already advanced."
-      );
-
       return new Response(
         JSON.stringify({
-
-          success:
-            true,
-
-          message:
-            "Already processed"
-
+          received: true
         }),
         {
           status: 200,
-
           headers: {
             "Content-Type":
               "application/json"
@@ -433,10 +232,212 @@ export async function onRequestPost(context) {
       );
     }
 
+    const session =
+      event.data?.object;
 
-    // ==================================================
-    // 9. Verify payment amount
-    // ==================================================
+    if (!session) {
+      return new Response(
+        "Missing checkout session",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Make sure payment was actually successful
+    // --------------------------------------------
+
+    if (
+      session.payment_status !==
+      "paid"
+    ) {
+      console.log(
+        "Checkout session not paid:",
+        session.id
+      );
+
+      return new Response(
+        JSON.stringify({
+          received: true,
+          ignored: "Payment not completed"
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type":
+              "application/json"
+          }
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Read metadata
+    // --------------------------------------------
+
+    const metadata =
+      session.metadata || {};
+
+    const ownerName =
+      String(
+        metadata.name || ""
+      ).trim();
+
+    const ownerEmail =
+      String(
+        metadata.email || ""
+      ).trim();
+
+    const destinationUrl =
+      String(
+        metadata.destination_url || ""
+      ).trim();
+
+    if (
+      !ownerName ||
+      !ownerEmail ||
+      !destinationUrl
+    ) {
+      console.log(
+        "Missing checkout metadata:",
+        metadata
+      );
+
+      return new Response(
+        "Missing required metadata",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Get payment amount
+    //
+    // Stripe amount_total is cents.
+    // --------------------------------------------
+
+    const stripeAmount =
+      Number(
+        session.amount_total
+      );
+
+    if (
+      !Number.isInteger(
+        stripeAmount
+      ) ||
+      stripeAmount <= 0
+    ) {
+      return new Response(
+        "Invalid payment amount",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Currency must be USD
+    // --------------------------------------------
+
+    const currency =
+      String(
+        session.currency || ""
+      ).toLowerCase();
+
+    if (currency !== "usd") {
+      console.log(
+        "Unexpected currency:",
+        currency
+      );
+
+      return new Response(
+        "Invalid currency",
+        {
+          status: 400
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Get current site state
+    // --------------------------------------------
+
+    const stateResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
+        {
+          method: "GET",
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization":
+              `Bearer ${supabaseKey}`,
+            "Accept":
+              "application/json"
+          }
+        }
+      );
+
+    const stateText =
+      await stateResponse.text();
+
+    if (!stateResponse.ok) {
+
+      console.log(
+        "Supabase state lookup failed:",
+        stateResponse.status,
+        stateText
+      );
+
+      return new Response(
+        "Unable to get site state",
+        {
+          status: 500
+        }
+      );
+    }
+
+    const stateData =
+      JSON.parse(stateText);
+
+    if (
+      !Array.isArray(stateData) ||
+      stateData.length === 0
+    ) {
+      return new Response(
+        "Site state not found",
+        {
+          status: 500
+        }
+      );
+    }
+
+    const state =
+      stateData[0];
+
+    const currentPrice =
+      Number(
+        state.current_price
+      );
+
+    if (
+      !Number.isInteger(
+        currentPrice
+      ) ||
+      currentPrice <= 0
+    ) {
+      return new Response(
+        "Invalid current price",
+        {
+          status: 500
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Make sure Stripe charged current price
+    // --------------------------------------------
 
     if (
       stripeAmount !==
@@ -444,167 +445,154 @@ export async function onRequestPost(context) {
     ) {
 
       console.log(
-        "Incorrect payment amount:",
-        stripeAmount,
-
-        "expected:",
-        currentPrice
+        "Price mismatch:",
+        {
+          stripeAmount,
+          currentPrice
+        }
       );
 
       return new Response(
-        "Incorrect payment amount",
+        "Price mismatch",
         {
-          status: 400
+          status: 409
         }
       );
     }
 
+    // --------------------------------------------
+    // Check whether this sale already exists
+    // --------------------------------------------
 
-    // ==================================================
-    // 10. Determine sale number
-    //     and next price
-    // ==================================================
-
-    let saleNumber;
-    let newPrice;
-
-
-    if (alreadyProcessed) {
-
-      /*
-        Sale exists but site state wasn't
-        successfully updated.
-
-        Re-use the existing sale number.
-      */
-
-      saleNumber =
-        Number(
-          recordedSale.sale_number
-        );
-
-      newPrice =
-        Math.ceil(
-          currentPrice * 1.25
-        );
-
-      console.log(
-        `Retrying state update for sale #${saleNumber}`
-      );
-
-    } else {
-
-      saleNumber =
-        Number(
-          state.sale_count || 0
-        ) + 1;
-
-      newPrice =
-        Math.ceil(
-          currentPrice * 1.25
-        );
-
-      console.log(
-        `Processing new sale #${saleNumber}`
-      );
-    }
-
-
-    // ==================================================
-    // 11. Record sale
-    // ==================================================
-
-    if (!alreadyProcessed) {
-
-      const saleResponse =
-        await fetch(
-          `${supabaseUrl}/rest/v1/sales`,
-          {
-            method: "POST",
-
-            headers: {
-              ...headers,
-
-              "Prefer":
-                "return=minimal"
-            },
-
-            body: JSON.stringify({
-
-              sale_number:
-                saleNumber,
-
-              owner_name:
-                ownerName,
-
-              owner_email:
-                ownerEmail,
-
-              destination_url:
-                destinationUrl,
-
-              /*
-                Store the amount in pence,
-                matching current_price.
-              */
-
-              amount:
-                stripeAmount,
-
-              currency:
-                session.currency ||
-                "gbp",
-
-              stripe_payment_id:
-                session.id
-            })
+    const saleCheckResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/sales?stripe_payment_id=eq.${encodeURIComponent(session.id)}&select=id`,
+        {
+          method: "GET",
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization":
+              `Bearer ${supabaseKey}`,
+            "Accept":
+              "application/json"
           }
-        );
+        }
+      );
 
+    if (saleCheckResponse.ok) {
 
-      if (!saleResponse.ok) {
+      const existingSales =
+        await saleCheckResponse.json();
+
+      if (
+        Array.isArray(existingSales) &&
+        existingSales.length > 0
+      ) {
 
         console.log(
-          "Sale insert failed:",
-          saleResponse.status,
-          await saleResponse.text()
+          "Sale already processed:",
+          session.id
         );
 
         return new Response(
-          "Unable to record sale",
+          JSON.stringify({
+            received: true,
+            already_processed: true
+          }),
           {
-            status: 500
+            status: 200,
+            headers: {
+              "Content-Type":
+                "application/json"
+            }
           }
         );
       }
+    }
 
+    // --------------------------------------------
+    // Calculate next price
+    //
+    // Increase by 25%.
+    //
+    // Example:
+    // $12.50 -> $15.63
+    // $15.63 -> $19.54
+    // --------------------------------------------
+
+    const newPrice =
+      Math.ceil(
+        currentPrice * 1.25
+      );
+
+    const saleNumber =
+      Number(
+        state.sale_count || 0
+      ) + 1;
+
+    const currentRevenue =
+      Number(
+        state.total_revenue || 0
+      );
+
+    const newTotalRevenue =
+      currentRevenue +
+      stripeAmount;
+
+    // --------------------------------------------
+    // Insert sale
+    // --------------------------------------------
+
+    const saleResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/sales`,
+        {
+          method: "POST",
+
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization":
+              `Bearer ${supabaseKey}`,
+            "Content-Type":
+              "application/json",
+            "Prefer":
+              "return=minimal"
+          },
+
+          body: JSON.stringify({
+            amount: stripeAmount,
+            currency: "usd",
+            name: ownerName,
+            email: ownerEmail,
+            destination_url:
+              destinationUrl,
+            stripe_payment_id:
+              session.id
+          })
+        }
+      );
+
+    if (!saleResponse.ok) {
+
+      const saleError =
+        await saleResponse.text();
 
       console.log(
-        `Sale #${saleNumber} recorded successfully.`
+        "Sale insert failed:",
+        saleError
+      );
+
+      return new Response(
+        "Unable to record sale",
+        {
+          status: 500
+        }
       );
     }
 
-
-    // ==================================================
-    // 12. Update site state
-    // ==================================================
-
-    /*
-      total_revenue is also stored in pence.
-
-      Example:
-
-      £12.50 + £10.00
-      = 1250 + 1000
-      = 2250
-    */
-
-    const newTotalRevenue =
-      Number(
-        state.total_revenue || 0
-      ) +
-      stripeAmount;
-
+    // --------------------------------------------
+    // Update site state
+    // --------------------------------------------
 
     const updateResponse =
       await fetch(
@@ -613,8 +601,11 @@ export async function onRequestPost(context) {
           method: "PATCH",
 
           headers: {
-            ...headers,
-
+            "apikey": supabaseKey,
+            "Authorization":
+              `Bearer ${supabaseKey}`,
+            "Content-Type":
+              "application/json",
             "Prefer":
               "return=minimal"
           },
@@ -622,7 +613,7 @@ export async function onRequestPost(context) {
           body: JSON.stringify({
 
             current_price:
-              Number(newPrice),
+              newPrice,
 
             current_owner:
               ownerName,
@@ -634,21 +625,17 @@ export async function onRequestPost(context) {
               destinationUrl,
 
             sale_count:
-              Number(saleNumber),
+              saleNumber,
 
             total_revenue:
-              Number(newTotalRevenue),
+              newTotalRevenue,
 
             updated_at:
               new Date().toISOString()
+
           })
         }
       );
-
-
-    // ==================================================
-    // 13. Check update
-    // ==================================================
 
     if (!updateResponse.ok) {
 
@@ -656,60 +643,52 @@ export async function onRequestPost(context) {
         await updateResponse.text();
 
       console.log(
-        "State update failed:",
-        updateResponse.status,
+        "Site state update failed:",
         updateError
       );
 
       return new Response(
-        `State update failed: ${updateResponse.status} ${updateError}`,
+        "Sale recorded but site state update failed",
         {
           status: 500
         }
       );
     }
 
-
-    // ==================================================
-    // 14. Complete
-    // ==================================================
-
-    console.log(
-      `BuyTheLink sale #${saleNumber} completed.`
-    );
+    // --------------------------------------------
+    // Success
+    // --------------------------------------------
 
     console.log(
-      `Old price: ${currentPrice} pence`
+      "SALE COMPLETED",
+      {
+        sale: saleNumber,
+        owner: ownerName,
+        amount: stripeAmount,
+        oldPrice: currentPrice,
+        newPrice: newPrice
+      }
     );
-
-    console.log(
-      `New price: ${newPrice} pence`
-    );
-
-    console.log(
-      `New price: £${(
-        newPrice / 100
-      ).toFixed(2)}`
-    );
-
 
     return new Response(
       JSON.stringify({
 
-        success:
-          true,
+        received: true,
 
         sale_number:
           saleNumber,
 
-        old_price:
-          currentPrice,
+        amount:
+          stripeAmount,
+
+        currency:
+          "usd",
 
         new_price:
           newPrice,
 
         new_price_display:
-          `£${(
+          `$${(
             newPrice / 100
           ).toFixed(2)}`
 
@@ -724,7 +703,6 @@ export async function onRequestPost(context) {
       }
     );
 
-
   } catch (error) {
 
     console.log(
@@ -733,10 +711,19 @@ export async function onRequestPost(context) {
     );
 
     return new Response(
-      "Webhook processing failed",
+      JSON.stringify({
+        error:
+          error?.message ||
+          "Server error"
+      }),
       {
-        status: 500
+        status: 500,
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        }
       }
     );
   }
-}
+  }
