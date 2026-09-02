@@ -1,764 +1,957 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>BuyTheLink — The Internet's Most Expensive Link</title>
+  <title>BuyTheLink — The Internet's Most Expensive Link</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+  <meta
+    name="description"
+    content="Own the internet's most expensive link. Buy the link, set where it goes, and become the current owner."
+  >
 
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #000;
-            color: #fff;
-            min-height: 100vh;
-        }
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
+    html {
+      scroll-behavior: smooth;
+    }
 
-        header {
-            text-align: center;
-            padding: 30px 0 70px;
-        }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #050505;
+      color: #ffffff;
+      min-height: 100vh;
+    }
 
-        .logo {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 3px;
-        }
+    a {
+      color: inherit;
+    }
 
-        .tagline {
-            color: #888;
-            margin-top: 12px;
-        }
+    .container {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
 
-        .hero {
-            text-align: center;
-        }
+    header {
+      padding: 25px 0;
+      border-bottom: 1px solid #222;
+    }
 
-        .hero h1 {
-            font-size: clamp(48px, 10vw, 100px);
-            line-height: 0.95;
-            margin: 0 0 25px;
-            letter-spacing: -4px;
-        }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
 
-        .hero > p {
-            font-size: 20px;
-            color: #aaa;
-            max-width: 600px;
-            margin: 0 auto 30px;
-            line-height: 1.5;
-        }
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
 
-        .visit-link {
-            display: inline-block;
-            color: #fff;
-            text-decoration: none;
-            font-weight: 700;
-            margin-bottom: 45px;
-        }
+    .nav-link {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 14px;
+    }
 
-        .visit-link:hover {
-            opacity: 0.7;
-        }
+    .nav-link:hover {
+      color: #fff;
+    }
 
-        .price-label {
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-size: 13px;
-        }
+    .hero {
+      text-align: center;
+      padding: 90px 0 70px;
+    }
 
-        .price {
-            font-size: 64px;
-            font-weight: 800;
-            margin: 8px 0 25px;
-        }
+    .eyebrow {
+      display: inline-block;
+      color: #aaa;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      margin-bottom: 25px;
+    }
 
-        .buy-button {
-            display: inline-block;
-            background: #fff;
-            color: #000;
-            padding: 18px 45px;
-            border-radius: 8px;
-            border: 0;
-            font-size: 18px;
-            font-weight: 800;
-            cursor: pointer;
-        }
+    h1 {
+      margin: 0 auto 20px;
+      max-width: 850px;
+      font-size: clamp(44px, 8vw, 86px);
+      line-height: 0.95;
+      letter-spacing: -4px;
+    }
 
-        .buy-button:hover {
-            opacity: 0.85;
-        }
+    .hero-text {
+      max-width: 650px;
+      margin: 0 auto;
+      color: #aaa;
+      font-size: 18px;
+      line-height: 1.6;
+    }
 
-        .current-owner,
-        .visitor-count {
-            margin-top: 20px;
-            color: #777;
-            font-size: 14px;
-        }
+    .price-card {
+      width: min(500px, 100%);
+      margin: 45px auto 0;
+      padding: 35px;
+      background: #101010;
+      border: 1px solid #292929;
+      border-radius: 20px;
+    }
 
-        .current-owner strong,
-        .visitor-count strong {
-            color: #fff;
-        }
+    .price-label {
+      color: #888;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
 
-        .card {
-            margin-top: 90px;
-            padding: 30px;
-            border: 1px solid #222;
-            border-radius: 12px;
-        }
+    .price {
+      font-size: clamp(50px, 10vw, 78px);
+      font-weight: 800;
+      letter-spacing: -3px;
+      margin-bottom: 10px;
+    }
 
-        .card h2 {
-            margin-top: 0;
-        }
+    .price-note {
+      color: #777;
+      font-size: 13px;
+    }
 
-        .card p {
-            color: #999;
-            line-height: 1.6;
-        }
+    .buy-button {
+      display: inline-block;
+      width: 100%;
+      margin-top: 25px;
+      padding: 18px 25px;
+      border: 0;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
 
-        footer {
-            text-align: center;
-            color: #555;
-            padding: 70px 0 30px;
-        }
+    .buy-button:hover {
+      transform: translateY(-2px);
+    }
 
-        /* Purchase popup */
+    .buy-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
 
-        .overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 100;
-            padding: 20px;
-            overflow-y: auto;
-        }
+    .owner-section {
+      padding: 30px 0 90px;
+    }
 
-        .modal {
-            max-width: 500px;
-            margin: 50px auto;
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 14px;
-            padding: 30px;
-            position: relative;
-        }
+    .owner-card {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 30px;
+      background: #0d0d0d;
+      border: 1px solid #222;
+      border-radius: 18px;
+      text-align: center;
+    }
 
-        .modal h2 {
-            margin-top: 0;
-            font-size: 28px;
-        }
+    .owner-label {
+      color: #777;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
 
-        .modal-price {
-            font-size: 36px;
-            font-weight: 800;
-            margin: 15px 0 25px;
-        }
+    .owner-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
 
-        .close {
-            position: absolute;
-            right: 20px;
-            top: 15px;
-            background: none;
-            border: 0;
-            color: #888;
-            font-size: 30px;
-            cursor: pointer;
-        }
+    .owner-link {
+      display: inline-block;
+      color: #aaa;
+      font-size: 14px;
+      text-decoration: none;
+      word-break: break-all;
+    }
 
-        label {
-            display: block;
-            margin-top: 18px;
-            margin-bottom: 7px;
-            color: #ccc;
-            font-size: 14px;
-        }
+    .owner-link:hover {
+      color: #fff;
+    }
 
-        input {
-            width: 100%;
-            padding: 14px;
-            border-radius: 7px;
-            border: 1px solid #333;
-            background: #050505;
-            color: #fff;
-            font-size: 16px;
-        }
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      margin-top: 25px;
+    }
 
-        input:focus {
-            outline: none;
-            border-color: #777;
-        }
+    .stat-value {
+      font-size: 25px;
+      font-weight: 700;
+    }
 
-        .checkout-button {
-            width: 100%;
-            margin-top: 25px;
-            padding: 16px;
-            background: #fff;
-            color: #000;
-            border: 0;
-            border-radius: 7px;
-            font-size: 17px;
-            font-weight: 800;
-            cursor: pointer;
-        }
+    .stat-label {
+      color: #666;
+      font-size: 12px;
+      margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
-        .checkout-button:disabled {
-            opacity: 0.5;
-            cursor: wait;
-        }
+    .how {
+      padding: 80px 0;
+      border-top: 1px solid #1c1c1c;
+    }
 
-        .error {
-            color: #ff6b6b;
-            margin-top: 15px;
-            display: none;
-        }
+    .how h2 {
+      text-align: center;
+      font-size: 38px;
+      margin-bottom: 45px;
+    }
 
-        .note {
-            color: #666;
-            font-size: 12px;
-            line-height: 1.5;
-            margin-top: 15px;
-        }
-    </style>
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .step {
+      padding: 25px;
+      background: #0d0d0d;
+      border: 1px solid #222;
+      border-radius: 16px;
+    }
+
+    .step-number {
+      color: #777;
+      font-size: 13px;
+      margin-bottom: 15px;
+    }
+
+    .step h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .step p {
+      margin: 0;
+      color: #888;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    footer {
+      border-top: 1px solid #222;
+      padding: 30px 0;
+      color: #666;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* Modal */
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      width: min(500px, 100%);
+      background: #111;
+      border: 1px solid #2b2b2b;
+      border-radius: 18px;
+      padding: 30px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      right: 18px;
+      top: 14px;
+      border: 0;
+      background: none;
+      color: #777;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      color: #fff;
+    }
+
+    .modal h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .modal-description {
+      color: #888;
+      line-height: 1.5;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
+
+    .modal-price {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 25px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #aaa;
+      font-size: 13px;
+      margin-bottom: 7px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #080808;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: #777;
+    }
+
+    .checkout-error {
+      display: none;
+      color: #ff7777;
+      background: #241010;
+      border: 1px solid #542222;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 750px) {
+      .hero {
+        padding-top: 60px;
+      }
+
+      h1 {
+        letter-spacing: -2px;
+      }
+
+      .steps {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        gap: 35px;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="container">
+<header>
+  <div class="container nav">
+    <a href="/" class="logo">BuyTheLink</a>
 
-    <header>
-        <div class="logo">BUYTHELINK.COM</div>
-        <div class="tagline">
-            The internet's most expensive link.
-        </div>
-    </header>
+    <a href="#how-it-works" class="nav-link">
+      How it works
+    </a>
+  </div>
+</header>
 
-    <main class="hero">
+<main>
 
-        <h1>BUY<br>THE LINK.</h1>
+  <section class="hero">
 
-        <p>
-            One link. One owner.
-            Buy it, choose where it goes,
-            and become part of internet history.
-        </p>
+    <div class="container">
 
-        <a
-            href="/api/redirect"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="visit-link"
-        >
-            VISIT THE LINK →
-        </a>
+      <div class="eyebrow">
+        THE INTERNET'S MOST EXPENSIVE LINK
+      </div>
+
+      <h1>
+        Own the link.<br>
+        Own the destination.
+      </h1>
+
+      <p class="hero-text">
+        There is only one BuyTheLink. Buy it, choose where it sends people,
+        and become the current owner. The next person will have to pay more.
+      </p>
+
+      <div class="price-card">
 
         <div class="price-label">
-            Current price
+          Current price
         </div>
 
-        <!-- Price is loaded from Supabase -->
-        <div class="price" id="current-price">
-            Loading...
+        <div
+          class="price"
+          id="current-price"
+        >
+          Loading...
+        </div>
+
+        <div class="price-note">
+          Price increases by 25% after every successful sale.
         </div>
 
         <button
-            class="buy-button"
-            onclick="openPurchase()"
+          class="buy-button"
+          id="buy-button"
+          type="button"
         >
-            BUY THE LINK
+          BuyTheLink
         </button>
 
-        <div class="current-owner">
-            Currently owned by
-            <strong id="current-owner">
-                Loading...
-            </strong>
-        </div>
-
-        <div class="visitor-count">
-            👁
-            <strong id="visitor-count">
-                Loading...
-            </strong>
-            people have visited
-        </div>
-
-    </main>
-
-    <section class="card">
-
-        <h2>How it works</h2>
-
-        <p>
-            There is only one BuyTheLink.
-            Whoever owns it controls where the link goes.
-        </p>
-
-        <p>
-            When someone buys it, the price increases by 25%.
-        </p>
-
-        <p>
-            The goal?
-            Make this the most expensive link on the internet.
-        </p>
-
-    </section>
-
-    <footer>
-        © 2026 BuyTheLink.com
-    </footer>
-
-</div>
-
-
-<!-- Purchase window -->
-
-<div
-    class="overlay"
-    id="purchaseOverlay"
->
-
-    <div class="modal">
-
-        <button
-            class="close"
-            onclick="closePurchase()"
-        >
-            ×
-        </button>
-
-        <h2>
-            Buy the link
-        </h2>
-
-        <div class="modal-price">
-            <span id="modal-price">
-                Loading...
-            </span>
-        </div>
-
-        <form id="purchaseForm">
-
-            <label for="name">
-                Your name
-            </label>
-
-            <input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Your name"
-                required
-            >
-
-            <label for="email">
-                Email address
-            </label>
-
-            <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                required
-            >
-
-            <label for="url">
-                Where should the link go?
-            </label>
-
-            <input
-                id="url"
-                name="url"
-                type="url"
-                placeholder="https://example.com"
-                required
-            >
-
-            <button
-                type="submit"
-                class="checkout-button"
-                id="checkoutButton"
-            >
-                CONTINUE TO PAYMENT
-            </button>
-
-            <div
-                class="error"
-                id="errorMessage"
-            ></div>
-
-            <div class="note">
-                You'll be taken to Stripe's secure checkout
-                to complete your purchase.
-            </div>
-
-        </form>
+      </div>
 
     </div>
+
+  </section>
+
+  <section class="owner-section">
+
+    <div class="container">
+
+      <div class="owner-card">
+
+        <div class="owner-label">
+          Currently owned by
+        </div>
+
+        <div
+          class="owner-name"
+          id="owner-name"
+        >
+          Loading...
+        </div>
+
+        <a
+          href="#"
+          class="owner-link"
+          id="owner-link"
+          target="_blank"
+          rel="noopener noreferrer"
+          style="display:none;"
+        ></a>
+
+        <div class="stats">
+
+          <div>
+            <div
+              class="stat-value"
+              id="sale-count"
+            >
+              —
+            </div>
+
+            <div class="stat-label">
+              Sales
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section
+    class="how"
+    id="how-it-works"
+  >
+
+    <div class="container">
+
+      <h2>
+        How it works
+      </h2>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-number">01</div>
+
+          <h3>Buy the link</h3>
+
+          <p>
+            Pay the current asking price through secure Stripe Checkout.
+          </p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">02</div>
+
+          <h3>Choose your destination</h3>
+
+          <p>
+            Enter the website you want BuyTheLink to send visitors to.
+          </p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">03</div>
+
+          <h3>Become the owner</h3>
+
+          <p>
+            Your destination becomes the live destination until somebody
+            else buys the link from you for 25% more.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    © 2026 BuyTheLink. One link. One owner.
+  </div>
+</footer>
+
+
+<!-- BUY MODAL -->
+
+<div
+  class="modal"
+  id="buy-modal"
+>
+
+  <div class="modal-content">
+
+    <button
+      class="modal-close"
+      id="modal-close"
+      type="button"
+      aria-label="Close"
+    >
+      ×
+    </button>
+
+    <h2>
+      BuyTheLink
+    </h2>
+
+    <div class="modal-description">
+      Become the current owner of BuyTheLink.
+      Your destination will become the live link.
+    </div>
+
+    <div
+      class="modal-price"
+      id="modal-price"
+    >
+      Loading...
+    </div>
+
+    <div
+      class="checkout-error"
+      id="checkout-error"
+    ></div>
+
+    <form id="checkout-form">
+
+      <div class="form-group">
+
+        <label for="name">
+          Your name
+        </label>
+
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+        >
+
+      </div>
+
+      <div class="form-group">
+
+        <label for="email">
+          Email address
+        </label>
+
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+        >
+
+      </div>
+
+      <div class="form-group">
+
+        <label for="url">
+          Destination URL
+        </label>
+
+        <input
+          type="url"
+          id="url"
+          name="url"
+          placeholder="https://example.com"
+          required
+        >
+
+      </div>
+
+      <button
+        class="buy-button"
+        id="checkout-button"
+        type="submit"
+      >
+        Continue to payment
+      </button>
+
+    </form>
+
+  </div>
 
 </div>
 
 
 <script>
 
-    // ---------------------------------------------
-    // Open / close purchase window
-    // ---------------------------------------------
+  // --------------------------------------------
+  // Currency formatter
+  // --------------------------------------------
 
-    function openPurchase() {
-        document.getElementById(
-            "purchaseOverlay"
-        ).style.display = "block";
+  function formatPrice(cents) {
 
-        document.getElementById(
-            "name"
-        ).focus();
+    const amount = Number(cents);
+
+    if (!Number.isFinite(amount)) {
+      return "Price unavailable";
     }
 
-    function closePurchase() {
-        document.getElementById(
-            "purchaseOverlay"
-        ).style.display = "none";
-    }
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD"
+    }).format(amount / 100);
+
+  }
 
 
-    // ---------------------------------------------
-    // Load current price
-    // ---------------------------------------------
+  // --------------------------------------------
+  // Load current price
+  // --------------------------------------------
 
-    async function loadCurrentPrice() {
+  async function loadCurrentPrice() {
 
-        try {
+    const priceElement =
+      document.getElementById("current-price");
 
-            const response =
-                await fetch(
-                    "/api/price",
-                    {
-                        cache: "no-store"
-                    }
-                );
+    const modalPriceElement =
+      document.getElementById("modal-price");
 
-            if (!response.ok) {
-                throw new Error(
-                    "Price unavailable"
-                );
-            }
+    try {
 
-            const data =
-                await response.json();
-
-            /*
-                Supabase stores price in pence.
-
-                Example:
-
-                1563 = £15.63
-
-                Convert pence to pounds for display.
-            */
-
-            const price =
-                Number(data.price) / 100;
-
-            const formattedPrice =
-                new Intl.NumberFormat(
-                    "en-GB",
-                    {
-                        style: "currency",
-                        currency: "GBP"
-                    }
-                ).format(price);
-
-
-            // Main page price
-
-            const priceElement =
-                document.getElementById(
-                    "current-price"
-                );
-
-            if (priceElement) {
-                priceElement.textContent =
-                    formattedPrice;
-            }
-
-
-            // Purchase modal price
-
-            const modalPrice =
-                document.getElementById(
-                    "modal-price"
-                );
-
-            if (modalPrice) {
-                modalPrice.textContent =
-                    formattedPrice;
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Could not load current price:",
-                error
-            );
-
-            const priceElement =
-                document.getElementById(
-                    "current-price"
-                );
-
-            if (priceElement) {
-                priceElement.textContent =
-                    "Price unavailable";
-            }
-
-            const modalPrice =
-                document.getElementById(
-                    "modal-price"
-                );
-
-            if (modalPrice) {
-                modalPrice.textContent =
-                    "Price unavailable";
-            }
+      const response = await fetch(
+        "/api/price",
+        {
+          cache: "no-store"
         }
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to load price");
+      }
+
+      const data =
+        await response.json();
+
+      const formattedPrice =
+        formatPrice(data.price);
+
+      priceElement.textContent =
+        formattedPrice;
+
+      modalPriceElement.textContent =
+        formattedPrice;
+
+    } catch (error) {
+
+      console.error(
+        "Price loading error:",
+        error
+      );
+
+      priceElement.textContent =
+        "Price unavailable";
+
+      modalPriceElement.textContent =
+        "Price unavailable";
     }
 
+  }
 
-    // ---------------------------------------------
-    // Load current owner
-    // ---------------------------------------------
 
-    async function loadCurrentOwner() {
+  // --------------------------------------------
+  // Load current owner
+  // --------------------------------------------
 
-        try {
+  async function loadCurrentOwner() {
 
-            const response =
-                await fetch(
-                    "/api/owner",
-                    {
-                        cache: "no-store"
-                    }
-                );
+    const ownerElement =
+      document.getElementById("owner-name");
 
-            if (!response.ok) {
-                throw new Error(
-                    "Owner unavailable"
-                );
-            }
+    const ownerLink =
+      document.getElementById("owner-link");
 
-            const data =
-                await response.json();
+    const saleCountElement =
+      document.getElementById("sale-count");
 
-            const ownerElement =
-                document.getElementById(
-                    "current-owner"
-                );
+    try {
 
-            if (ownerElement) {
-
-                ownerElement.textContent =
-                    data.owner ||
-                    "No owner yet";
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Could not load current owner:",
-                error
-            );
+      const response = await fetch(
+        "/api/owner",
+        {
+          cache: "no-store"
         }
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to load owner");
+      }
+
+      const data =
+        await response.json();
+
+      ownerElement.textContent =
+        data.name || "Nobody yet";
+
+      if (data.url) {
+
+        ownerLink.href =
+          data.url;
+
+        ownerLink.textContent =
+          data.url;
+
+        ownerLink.style.display =
+          "inline-block";
+
+      } else {
+
+        ownerLink.style.display =
+          "none";
+
+      }
+
+      saleCountElement.textContent =
+        data.sale_count ?? 0;
+
+    } catch (error) {
+
+      console.error(
+        "Owner loading error:",
+        error
+      );
+
+      ownerElement.textContent =
+        "Nobody yet";
+
+      ownerLink.style.display =
+        "none";
+
     }
 
+  }
 
-    // ---------------------------------------------
-    // Load visitor count
-    // ---------------------------------------------
 
-    async function loadVisitors() {
+  // --------------------------------------------
+  // Modal
+  // --------------------------------------------
 
-        try {
+  const modal =
+    document.getElementById("buy-modal");
 
-            const response =
-                await fetch(
-                    "/api/visitors",
-                    {
-                        cache: "no-store"
-                    }
-                );
+  const buyButton =
+    document.getElementById("buy-button");
 
-            if (!response.ok) {
-                throw new Error(
-                    "Visitor API failed"
-                );
+  const modalClose =
+    document.getElementById("modal-close");
+
+
+  buyButton.addEventListener(
+    "click",
+    function() {
+
+      modal.classList.add("active");
+
+      loadCurrentPrice();
+
+    }
+  );
+
+
+  modalClose.addEventListener(
+    "click",
+    function() {
+
+      modal.classList.remove("active");
+
+    }
+  );
+
+
+  modal.addEventListener(
+    "click",
+    function(event) {
+
+      if (event.target === modal) {
+        modal.classList.remove("active");
+      }
+
+    }
+  );
+
+
+  // --------------------------------------------
+  // Checkout
+  // --------------------------------------------
+
+  const checkoutForm =
+    document.getElementById("checkout-form");
+
+  const checkoutButton =
+    document.getElementById("checkout-button");
+
+  const checkoutError =
+    document.getElementById("checkout-error");
+
+
+  checkoutForm.addEventListener(
+    "submit",
+    async function(event) {
+
+      event.preventDefault();
+
+      checkoutError.style.display =
+        "none";
+
+      checkoutButton.disabled =
+        true;
+
+      checkoutButton.textContent =
+        "Creating checkout...";
+
+      const formData =
+        new FormData(checkoutForm);
+
+      const payload = {
+        name: formData.get("name"),
+        email: formData.get("email"),
+        url: formData.get("url")
+      };
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/create-checkout",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+              body: JSON.stringify(payload)
             }
+          );
 
-            const data =
-                await response.json();
+        const data =
+          await response.json();
 
-            const element =
-                document.getElementById(
-                    "visitor-count"
-                );
-
-            if (element) {
-
-                element.textContent =
-                    Number(
-                        data.visitors || 0
-                    ).toLocaleString(
-                        "en-GB"
-                    );
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Visitor counter error:",
-                error
-            );
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            "Unable to create checkout"
+          );
         }
-    }
 
+        if (!data.url) {
+          throw new Error(
+            "Stripe checkout URL was not returned"
+          );
+        }
 
-    // ---------------------------------------------
-    // Create Stripe checkout
-    // ---------------------------------------------
+        window.location.href =
+          data.url;
 
-    document
-        .getElementById("purchaseForm")
-        .addEventListener(
-            "submit",
-            async function(event) {
+      } catch (error) {
 
-                event.preventDefault();
-
-                const button =
-                    document.getElementById(
-                        "checkoutButton"
-                    );
-
-                const error =
-                    document.getElementById(
-                        "errorMessage"
-                    );
-
-                error.style.display =
-                    "none";
-
-                button.disabled =
-                    true;
-
-                button.textContent =
-                    "CREATING CHECKOUT...";
-
-
-                const name =
-                    document
-                        .getElementById("name")
-                        .value
-                        .trim();
-
-                const email =
-                    document
-                        .getElementById("email")
-                        .value
-                        .trim();
-
-                const url =
-                    document
-                        .getElementById("url")
-                        .value
-                        .trim();
-
-
-                try {
-
-                    const response =
-                        await fetch(
-                            "/api/create-checkout",
-                            {
-                                method: "POST",
-
-                                headers: {
-                                    "Content-Type":
-                                        "application/json"
-                                },
-
-                                body:
-                                    JSON.stringify({
-                                        name,
-                                        email,
-                                        url
-                                    })
-                            }
-                        );
-
-
-                    const data =
-                        await response.json();
-
-
-                    if (!response.ok) {
-
-                        throw new Error(
-                            data.error ||
-                            "Unable to create checkout."
-                        );
-                    }
-
-
-                    window.location.href =
-                        data.url;
-
-
-                } catch (err) {
-
-                    console.error(
-                        "Checkout error:",
-                        err
-                    );
-
-                    error.textContent =
-                        err.message;
-
-                    error.style.display =
-                        "block";
-
-                    button.disabled =
-                        false;
-
-                    button.textContent =
-                        "CONTINUE TO PAYMENT";
-                }
-
-            }
+        console.error(
+          "Checkout error:",
+          error
         );
 
+        checkoutError.textContent =
+          error.message ||
+          "Something went wrong. Please try again.";
 
-    // ---------------------------------------------
-    // Load everything when page opens
-    // ---------------------------------------------
+        checkoutError.style.display =
+          "block";
 
-    loadCurrentPrice();
-    loadCurrentOwner();
-    loadVisitors();
+        checkoutButton.disabled =
+          false;
+
+        checkoutButton.textContent =
+          "Continue to payment";
+
+      }
+
+    }
+  );
+
+
+  // --------------------------------------------
+  // Initial page load
+  // --------------------------------------------
+
+  loadCurrentPrice();
+  loadCurrentOwner();
 
 </script>
 
