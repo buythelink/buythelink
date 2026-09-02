@@ -3,22 +3,8 @@ export async function onRequestGet(context) {
     const supabaseUrl = context.env.SUPABASE_URL;
     const supabaseKey = context.env.SUPABASE_SECRET_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      return new Response(
-        JSON.stringify({
-          error: "Supabase environment variables are missing"
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=owner_name,owner_email,destination_url,sale_count`,
+      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
       {
         method: "GET",
         headers: {
@@ -29,18 +15,20 @@ export async function onRequestGet(context) {
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    const responseText = await response.text();
 
+    if (!response.ok) {
       console.log(
-        "Owner lookup failed:",
+        "Supabase owner lookup failed:",
         response.status,
-        errorText
+        responseText
       );
 
       return new Response(
         JSON.stringify({
-          error: "Unable to get current owner"
+          error: "Supabase error",
+          status: response.status,
+          details: responseText
         }),
         {
           status: 500,
@@ -51,12 +39,12 @@ export async function onRequestGet(context) {
       );
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
 
     if (!Array.isArray(data) || data.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Owner not found"
+          error: "No site_state row found"
         }),
         {
           status: 404,
@@ -86,14 +74,12 @@ export async function onRequestGet(context) {
     );
 
   } catch (error) {
-    console.log(
-      "Owner error:",
-      error
-    );
+    console.log("Owner error:", error);
 
     return new Response(
       JSON.stringify({
-        error: "Server error"
+        error: "Server error",
+        details: error.message
       }),
       {
         status: 500,
