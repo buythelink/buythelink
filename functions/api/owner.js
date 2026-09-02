@@ -3,8 +3,22 @@ export async function onRequestGet(context) {
     const supabaseUrl = context.env.SUPABASE_URL;
     const supabaseKey = context.env.SUPABASE_SECRET_KEY;
 
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({
+          error: "Supabase environment variables are missing"
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=*`,
+      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_owner,current_email,current_url,sale_count`,
       {
         method: "GET",
         headers: {
@@ -26,9 +40,7 @@ export async function onRequestGet(context) {
 
       return new Response(
         JSON.stringify({
-          error: "Supabase error",
-          status: response.status,
-          details: responseText
+          error: "Unable to get current owner"
         }),
         {
           status: 500,
@@ -44,7 +56,7 @@ export async function onRequestGet(context) {
     if (!Array.isArray(data) || data.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "No site_state row found"
+          error: "No owner found"
         }),
         {
           status: 404,
@@ -59,9 +71,9 @@ export async function onRequestGet(context) {
 
     return new Response(
       JSON.stringify({
-        name: owner.owner_name || "Nobody yet",
-        email: owner.owner_email || "",
-        url: owner.destination_url || "",
+        name: owner.current_owner || "Nobody yet",
+        email: owner.current_email || "",
+        url: owner.current_url || "",
         sale_count: Number(owner.sale_count || 0)
       }),
       {
@@ -78,8 +90,7 @@ export async function onRequestGet(context) {
 
     return new Response(
       JSON.stringify({
-        error: "Server error",
-        details: error.message
+        error: "Server error"
       }),
       {
         status: 500,
