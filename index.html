@@ -195,8 +195,12 @@
     .stats {
       display: flex;
       justify-content: center;
-      gap: 60px;
-      margin-top: 25px;
+      gap: 70px;
+      margin-top: 30px;
+    }
+
+    .stat {
+      min-width: 100px;
     }
 
     .stat-value {
@@ -359,6 +363,7 @@
     }
 
     @media (max-width: 750px) {
+
       .hero {
         padding-top: 60px;
       }
@@ -381,16 +386,25 @@
 <body>
 
 <header>
+
   <div class="container nav">
-    <a href="/" class="logo">BuyTheLink</a>
+
+    <a href="/" class="logo">
+      BuyTheLink
+    </a>
 
     <a href="#how-it-works" class="nav-link">
       How it works
     </a>
+
   </div>
+
 </header>
 
+
 <main>
+
+  <!-- HERO -->
 
   <section class="hero">
 
@@ -441,6 +455,9 @@
 
   </section>
 
+
+  <!-- CURRENT OWNER -->
+
   <section class="owner-section">
 
     <div class="container">
@@ -467,9 +484,13 @@
           style="display:none;"
         ></a>
 
+
+        <!-- STATS -->
+
         <div class="stats">
 
-          <div>
+          <div class="stat">
+
             <div
               class="stat-value"
               id="sale-count"
@@ -480,6 +501,23 @@
             <div class="stat-label">
               Sales
             </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div
+              class="stat-value"
+              id="visitor-count"
+            >
+              —
+            </div>
+
+            <div class="stat-label">
+              Visitors
+            </div>
+
           </div>
 
         </div>
@@ -489,6 +527,9 @@
     </div>
 
   </section>
+
+
+  <!-- HOW IT WORKS -->
 
   <section
     class="how"
@@ -504,34 +545,54 @@
       <div class="steps">
 
         <div class="step">
-          <div class="step-number">01</div>
 
-          <h3>Buy the link</h3>
+          <div class="step-number">
+            01
+          </div>
+
+          <h3>
+            Buy the link
+          </h3>
 
           <p>
             Pay the current asking price through secure Stripe Checkout.
           </p>
+
         </div>
 
-        <div class="step">
-          <div class="step-number">02</div>
 
-          <h3>Choose your destination</h3>
+        <div class="step">
+
+          <div class="step-number">
+            02
+          </div>
+
+          <h3>
+            Choose your destination
+          </h3>
 
           <p>
             Enter the website you want BuyTheLink to send visitors to.
           </p>
+
         </div>
 
-        <div class="step">
-          <div class="step-number">03</div>
 
-          <h3>Become the owner</h3>
+        <div class="step">
+
+          <div class="step-number">
+            03
+          </div>
+
+          <h3>
+            Become the owner
+          </h3>
 
           <p>
             Your destination becomes the live destination until somebody
             else buys the link from you for 25% more.
           </p>
+
         </div>
 
       </div>
@@ -542,10 +603,13 @@
 
 </main>
 
+
 <footer>
+
   <div class="container">
     © 2026 BuyTheLink. One link. One owner.
   </div>
+
 </footer>
 
 
@@ -567,14 +631,17 @@
       ×
     </button>
 
+
     <h2>
       BuyTheLink
     </h2>
+
 
     <div class="modal-description">
       Become the current owner of BuyTheLink.
       Your destination will become the live link.
     </div>
+
 
     <div
       class="modal-price"
@@ -583,10 +650,12 @@
       Loading...
     </div>
 
+
     <div
       class="checkout-error"
       id="checkout-error"
     ></div>
+
 
     <form id="checkout-form">
 
@@ -605,6 +674,7 @@
 
       </div>
 
+
       <div class="form-group">
 
         <label for="email">
@@ -619,6 +689,7 @@
         >
 
       </div>
+
 
       <div class="form-group">
 
@@ -635,6 +706,7 @@
         >
 
       </div>
+
 
       <button
         class="buy-button"
@@ -654,7 +726,7 @@
 <script>
 
   // --------------------------------------------
-  // Currency formatter
+  // Format USD price
   // --------------------------------------------
 
   function formatPrice(cents) {
@@ -687,15 +759,18 @@
 
     try {
 
-      const response = await fetch(
-        "/api/price",
-        {
-          cache: "no-store"
-        }
-      );
+      const response =
+        await fetch(
+          "/api/price",
+          {
+            cache: "no-store"
+          }
+        );
 
       if (!response.ok) {
-        throw new Error("Unable to load price");
+        throw new Error(
+          "Unable to load price"
+        );
       }
 
       const data =
@@ -722,6 +797,7 @@
 
       modalPriceElement.textContent =
         "Price unavailable";
+
     }
 
   }
@@ -744,15 +820,18 @@
 
     try {
 
-      const response = await fetch(
-        "/api/owner",
-        {
-          cache: "no-store"
-        }
-      );
+      const response =
+        await fetch(
+          "/api/owner",
+          {
+            cache: "no-store"
+          }
+        );
 
       if (!response.ok) {
-        throw new Error("Unable to load owner");
+        throw new Error(
+          "Unable to load owner"
+        );
       }
 
       const data =
@@ -760,6 +839,7 @@
 
       ownerElement.textContent =
         data.name || "Nobody yet";
+
 
       if (data.url) {
 
@@ -778,6 +858,7 @@
           "none";
 
       }
+
 
       saleCountElement.textContent =
         data.sale_count ?? 0;
@@ -801,7 +882,84 @@
 
 
   // --------------------------------------------
-  // Modal
+  // Load visitor count
+  // --------------------------------------------
+
+  async function loadVisitors() {
+
+    const visitorElement =
+      document.getElementById("visitor-count");
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/visitors",
+          {
+            cache: "no-store"
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to load visitors"
+        );
+      }
+
+      const data =
+        await response.json();
+
+      /*
+        Supports the visitor endpoint returning
+        either:
+
+        { "visitor_count": 123 }
+
+        or:
+
+        { "visitors": 123 }
+
+        or:
+
+        { "count": 123 }
+      */
+
+      const visitorCount =
+        data.visitor_count ??
+        data.visitors ??
+        data.count;
+
+      if (
+        visitorCount === undefined ||
+        visitorCount === null
+      ) {
+        throw new Error(
+          "Visitor count not found"
+        );
+      }
+
+      visitorElement.textContent =
+        Number(visitorCount).toLocaleString(
+          "en-US"
+        );
+
+    } catch (error) {
+
+      console.error(
+        "Visitor loading error:",
+        error
+      );
+
+      visitorElement.textContent =
+        "—";
+
+    }
+
+  }
+
+
+  // --------------------------------------------
+  // Buy modal
   // --------------------------------------------
 
   const modal =
@@ -818,7 +976,9 @@
     "click",
     function() {
 
-      modal.classList.add("active");
+      modal.classList.add(
+        "active"
+      );
 
       loadCurrentPrice();
 
@@ -830,7 +990,9 @@
     "click",
     function() {
 
-      modal.classList.remove("active");
+      modal.classList.remove(
+        "active"
+      );
 
     }
   );
@@ -840,8 +1002,14 @@
     "click",
     function(event) {
 
-      if (event.target === modal) {
-        modal.classList.remove("active");
+      if (
+        event.target === modal
+      ) {
+
+        modal.classList.remove(
+          "active"
+        );
+
       }
 
     }
@@ -853,13 +1021,19 @@
   // --------------------------------------------
 
   const checkoutForm =
-    document.getElementById("checkout-form");
+    document.getElementById(
+      "checkout-form"
+    );
 
   const checkoutButton =
-    document.getElementById("checkout-button");
+    document.getElementById(
+      "checkout-button"
+    );
 
   const checkoutError =
-    document.getElementById("checkout-error");
+    document.getElementById(
+      "checkout-error"
+    );
 
 
   checkoutForm.addEventListener(
@@ -877,14 +1051,26 @@
       checkoutButton.textContent =
         "Creating checkout...";
 
+
       const formData =
-        new FormData(checkoutForm);
+        new FormData(
+          checkoutForm
+        );
+
 
       const payload = {
-        name: formData.get("name"),
-        email: formData.get("email"),
-        url: formData.get("url")
+
+        name:
+          formData.get("name"),
+
+        email:
+          formData.get("email"),
+
+        url:
+          formData.get("url")
+
       };
+
 
       try {
 
@@ -893,32 +1079,46 @@
             "/api/create-checkout",
             {
               method: "POST",
+
               headers: {
                 "Content-Type":
                   "application/json"
               },
-              body: JSON.stringify(payload)
+
+              body:
+                JSON.stringify(
+                  payload
+                )
             }
           );
+
 
         const data =
           await response.json();
 
+
         if (!response.ok) {
+
           throw new Error(
             data.error ||
             "Unable to create checkout"
           );
+
         }
 
+
         if (!data.url) {
+
           throw new Error(
             "Stripe checkout URL was not returned"
           );
+
         }
+
 
         window.location.href =
           data.url;
+
 
       } catch (error) {
 
@@ -927,15 +1127,19 @@
           error
         );
 
+
         checkoutError.textContent =
           error.message ||
           "Something went wrong. Please try again.";
 
+
         checkoutError.style.display =
           "block";
 
+
         checkoutButton.disabled =
           false;
+
 
         checkoutButton.textContent =
           "Continue to payment";
@@ -951,7 +1155,10 @@
   // --------------------------------------------
 
   loadCurrentPrice();
+
   loadCurrentOwner();
+
+  loadVisitors();
 
 </script>
 
