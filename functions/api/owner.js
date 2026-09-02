@@ -7,6 +7,10 @@ export async function onRequestPost(context) {
     let email = "";
     let url = "";
 
+    // --------------------------------------------
+    // Read request
+    // --------------------------------------------
+
     if (contentType.includes("application/json")) {
       const body = await context.request.json();
 
@@ -20,6 +24,10 @@ export async function onRequestPost(context) {
       email = String(formData.get("email") || "").trim();
       url = String(formData.get("url") || "").trim();
     }
+
+    // --------------------------------------------
+    // Validate fields
+    // --------------------------------------------
 
     if (!name || !email || !url) {
       return new Response(
@@ -35,7 +43,12 @@ export async function onRequestPost(context) {
       );
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // --------------------------------------------
+    // Validate email
+    // --------------------------------------------
+
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
       return new Response(
@@ -50,6 +63,10 @@ export async function onRequestPost(context) {
         }
       );
     }
+
+    // --------------------------------------------
+    // Validate destination URL
+    // --------------------------------------------
 
     let destinationUrl;
 
@@ -77,18 +94,32 @@ export async function onRequestPost(context) {
     }
 
     // --------------------------------------------
-    // Get LIVE price from Supabase
+    // Supabase
     // --------------------------------------------
 
-    const supabaseUrl = context.env.SUPABASE_URL;
-    const supabaseKey = context.env.SUPABASE_SECRET_KEY;
+    const supabaseUrl =
+      context.env.SUPABASE_URL;
+
+    const supabaseKey =
+      context.env.SUPABASE_SECRET_KEY;
+
+    // --------------------------------------------
+    // Get LIVE price
+    //
+    // current_price is stored in pence.
+    //
+    // Example:
+    // 1250 = £12.50
+    // 1563 = £15.63
+    // --------------------------------------------
 
     const priceResponse = await fetch(
       `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_price`,
       {
         headers: {
           "apikey": supabaseKey,
-          "Authorization": `Bearer ${supabaseKey}`,
+          "Authorization":
+            `Bearer ${supabaseKey}`,
           "Accept-Profile": "public"
         }
       }
@@ -114,7 +145,8 @@ export async function onRequestPost(context) {
       );
     }
 
-    const priceData = await priceResponse.json();
+    const priceData =
+      await priceResponse.json();
 
     if (!priceData.length) {
       return new Response(
@@ -130,11 +162,22 @@ export async function onRequestPost(context) {
       );
     }
 
-    const currentPrice = Number(
-      priceData[0].current_price
-    );
+    const currentPrice =
+      Number(priceData[0].current_price);
 
-    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+    // --------------------------------------------
+    // Validate price
+    // --------------------------------------------
+
+    if (
+      !Number.isInteger(currentPrice) ||
+      currentPrice <= 0
+    ) {
+      console.log(
+        "Invalid database price:",
+        currentPrice
+      );
+
       return new Response(
         JSON.stringify({
           error: "Invalid current price"
@@ -148,18 +191,18 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Stripe uses the smallest currency unit.
-    // £12.50 becomes 1250 pence.
-
-    const stripeAmount = Math.round(
-      currentPrice * 100
-    );
-
     // --------------------------------------------
     // Create Stripe Checkout Session
+    //
+    // Stripe expects the smallest currency unit.
+    //
+    // currentPrice is ALREADY in pence.
+    //
+    // 1563 = £15.63
     // --------------------------------------------
 
-    const stripeParams = new URLSearchParams();
+    const stripeParams =
+      new URLSearchParams();
 
     stripeParams.append(
       "mode",
@@ -193,13 +236,17 @@ export async function onRequestPost(context) {
 
     stripeParams.append(
       "line_items[0][price_data][unit_amount]",
-      String(stripeAmount)
+      String(currentPrice)
     );
 
     stripeParams.append(
       "line_items[0][price_data][product_data][name]",
       "BuyTheLink"
     );
+
+    // --------------------------------------------
+    // Stripe metadata
+    // --------------------------------------------
 
     stripeParams.append(
       "metadata[name]",
@@ -216,22 +263,27 @@ export async function onRequestPost(context) {
       destinationUrl.toString()
     );
 
-    const stripeResponse = await fetch(
-      "https://api.stripe.com/v1/checkout/sessions",
-      {
-        method: "POST",
+    // --------------------------------------------
+    // Create Stripe session
+    // --------------------------------------------
 
-        headers: {
-          "Authorization":
-            `Bearer ${context.env.STRIPE_SECRET_KEY}`,
+    const stripeResponse =
+      await fetch(
+        "https://api.stripe.com/v1/checkout/sessions",
+        {
+          method: "POST",
 
-          "Content-Type":
-            "application/x-www-form-urlencoded"
-        },
+          headers: {
+            "Authorization":
+              `Bearer ${context.env.STRIPE_SECRET_KEY}`,
 
-        body: stripeParams
-      }
-    );
+            "Content-Type":
+              "application/x-www-form-urlencoded"
+          },
+
+          body: stripeParams
+        }
+      );
 
     const stripeData =
       await stripeResponse.json();
@@ -257,6 +309,10 @@ export async function onRequestPost(context) {
       );
     }
 
+    // --------------------------------------------
+    // Return Stripe checkout URL
+    // --------------------------------------------
+
     return new Response(
       JSON.stringify({
         url: stripeData.url
@@ -270,6 +326,7 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
+
     console.log(
       "Checkout error:",
       error
@@ -287,4 +344,4 @@ export async function onRequestPost(context) {
       }
     );
   }
-}
+      }
