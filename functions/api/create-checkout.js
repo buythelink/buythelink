@@ -7,6 +7,10 @@ export async function onRequestPost(context) {
     let email = "";
     let url = "";
 
+    // --------------------------------------------
+    // Read request
+    // --------------------------------------------
+
     if (contentType.includes("application/json")) {
       const body = await context.request.json();
 
@@ -20,6 +24,10 @@ export async function onRequestPost(context) {
       email = String(formData.get("email") || "").trim();
       url = String(formData.get("url") || "").trim();
     }
+
+    // --------------------------------------------
+    // Validate fields
+    // --------------------------------------------
 
     if (!name || !email || !url) {
       return new Response(
@@ -35,7 +43,12 @@ export async function onRequestPost(context) {
       );
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // --------------------------------------------
+    // Validate email
+    // --------------------------------------------
+
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
       return new Response(
@@ -50,6 +63,10 @@ export async function onRequestPost(context) {
         }
       );
     }
+
+    // --------------------------------------------
+    // Validate destination URL
+    // --------------------------------------------
 
     let destinationUrl;
 
@@ -76,26 +93,59 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Get the LIVE price from Supabase
-    const supabaseUrl = context.env.SUPABASE_URL;
-    const supabaseKey = context.env.SUPABASE_SECRET_KEY;
+    // --------------------------------------------
+    // Supabase
+    // --------------------------------------------
+
+    const supabaseUrl =
+      context.env.SUPABASE_URL;
+
+    const supabaseKey =
+      context.env.SUPABASE_SECRET_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({
+          error: "Supabase configuration is missing"
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Get LIVE price
+    //
+    // current_price is stored in cents.
+    //
+    // 1250 = $12.50
+    // 1563 = $15.63
+    // --------------------------------------------
 
     const priceResponse = await fetch(
       `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_price`,
       {
+        method: "GET",
         headers: {
           "apikey": supabaseKey,
           "Authorization": `Bearer ${supabaseKey}`,
-          "Accept-Profile": "public"
+          "Accept": "application/json"
         }
       }
     );
+
+    const priceResponseText =
+      await priceResponse.text();
 
     if (!priceResponse.ok) {
       console.log(
         "Price lookup failed:",
         priceResponse.status,
-        await priceResponse.text()
+        priceResponseText
       );
 
       return new Response(
@@ -111,9 +161,29 @@ export async function onRequestPost(context) {
       );
     }
 
-    const priceData = await priceResponse.json();
+    let priceData;
 
-    if (!priceData.length) {
+    try {
+      priceData =
+        JSON.parse(priceResponseText);
+    } catch {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid price response"
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
+    if (
+      !Array.isArray(priceData) ||
+      priceData.length === 0
+    ) {
       return new Response(
         JSON.stringify({
           error: "Current price not found"
@@ -127,14 +197,52 @@ export async function onRequestPost(context) {
       );
     }
 
-    const currentPrice = Number(
-      priceData[0].current_price
-    );
+    const currentPrice =
+      Number(priceData[0].current_price);
 
+    // --------------------------------------------
+    // Validate price
+    // --------------------------------------------
+
+    if (
+      !Number.isInteger(currentPrice) ||
+      currentPrice <= 0
+    ) {
+      console.log(
+        "Invalid database price:",
+        currentPrice
+      );
+
+      return new Response(
+        JSON.stringify({
+          error: "Invalid current price"
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
+    // --------------------------------------------
     // Create Stripe Checkout Session
-    const stripeParams = new URLSearchParams();
+    //
+    // Stripe expects the smallest currency unit.
+    //
+    // currentPrice is already cents.
+    //
+    // 1563 = $15.63
+    // --------------------------------------------
 
-    stripeParams.append("mode", "payment");
+    const stripeParams =
+      new URLSearchParams();
+
+    stripeParams.append(
+      "mode",
+      "payment"
+    );
 
     stripeParams.append(
       "success_url",
@@ -156,9 +264,18 @@ export async function onRequestPost(context) {
       "1"
     );
 
+    // --------------------------------------------
+    // USD
+    // --------------------------------------------
+
     stripeParams.append(
       "line_items[0][price_data][currency]",
       "usd"
+    );
+
+    stripeParams.append(
+      "line_items[0][price_data][unit_amount]",
+      String(currentPrice)
     );
 
     stripeParams.append(
@@ -167,9 +284,13 @@ export async function onRequestPost(context) {
     );
 
     stripeParams.append(
-      "line_items[0][price_data][unit_amount]",
-      String(currentPrice)
+      "line_items[0][price_data][product_data][description]",
+      "Ownership of the current BuyTheLink internet link"
     );
+
+    // --------------------------------------------
+    // Stripe metadata
+    // --------------------------------------------
 
     stripeParams.append(
       "metadata[name]",
@@ -186,22 +307,55 @@ export async function onRequestPost(context) {
       destinationUrl.toString()
     );
 
-    const stripeResponse = await fetch(
-      "https://api.stripe.com/v1/checkout/sessions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization":
-            `Bearer ${context.env.STRIPE_SECRET_KEY}`,
-          "Content-Type":
-            "application/x-www-form-urlencoded"
-        },
-        body: stripeParams
-      }
-    );
+    // --------------------------------------------
+    // Stripe secret key
+    // --------------------------------------------
+
+    const stripeSecretKey =
+      context.env.STRIPE_SECRET_KEY;
+
+    if (!stripeSecretKey) {
+      return new Response(
+        JSON.stringify({
+          error: "Stripe configuration is missing"
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
+    // --------------------------------------------
+    // Create Stripe Checkout
+    // --------------------------------------------
+
+    const stripeResponse =
+      await fetch(
+        "https://api.stripe.com/v1/checkout/sessions",
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization":
+              `Bearer ${stripeSecretKey}`,
+
+            "Content-Type":
+              "application/x-www-form-urlencoded"
+          },
+
+          body: stripeParams
+        }
+      );
 
     const stripeData =
       await stripeResponse.json();
+
+    // --------------------------------------------
+    // Stripe error
+    // --------------------------------------------
 
     if (!stripeResponse.ok) {
       console.log(
@@ -224,19 +378,27 @@ export async function onRequestPost(context) {
       );
     }
 
+    // --------------------------------------------
+    // Return checkout URL
+    // --------------------------------------------
+
     return new Response(
       JSON.stringify({
-        url: stripeData.url
+        url: stripeData.url,
+        price: currentPrice,
+        currency: "usd"
       }),
       {
         status: 200,
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
         }
       }
     );
 
   } catch (error) {
+
     console.log(
       "Checkout error:",
       error
@@ -244,7 +406,9 @@ export async function onRequestPost(context) {
 
     return new Response(
       JSON.stringify({
-        error: String(error)
+        error:
+          error?.message ||
+          "Server error"
       }),
       {
         status: 500,
