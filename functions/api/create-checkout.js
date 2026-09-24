@@ -1,5 +1,7 @@
 export async function onRequestPost(context) {
+
   try {
+
     const contentType =
       context.request.headers.get("content-type") || "";
 
@@ -12,17 +14,21 @@ export async function onRequestPost(context) {
     // --------------------------------------------
 
     if (contentType.includes("application/json")) {
+
       const body = await context.request.json();
 
       name = String(body.name || "").trim();
       email = String(body.email || "").trim();
       url = String(body.url || "").trim();
+
     } else {
+
       const formData = await context.request.formData();
 
       name = String(formData.get("name") || "").trim();
       email = String(formData.get("email") || "").trim();
       url = String(formData.get("url") || "").trim();
+
     }
 
     // --------------------------------------------
@@ -30,6 +36,7 @@ export async function onRequestPost(context) {
     // --------------------------------------------
 
     if (!name || !email || !url) {
+
       return new Response(
         JSON.stringify({
           error: "Please complete all fields"
@@ -41,6 +48,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
@@ -51,6 +59,7 @@ export async function onRequestPost(context) {
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
+
       return new Response(
         JSON.stringify({
           error: "Please enter a valid email address"
@@ -62,27 +71,35 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
-    // Validate destination URL
+    // Destination
+    //
+    // IMPORTANT:
+    // The customer can now enter ANYTHING here.
+    //
+    // Examples:
+    // https://google.com
+    // https://x.com/example
+    // @username
+    // My website
+    // BuyTheLink
+    // hello@example.com
+    // Any other text
     // --------------------------------------------
 
-    let destinationUrl;
+    const destinationUrl = url;
 
-    try {
-      destinationUrl = new URL(url);
+    // Prevent excessively large values being stored
+    // in Stripe metadata.
 
-      if (
-        destinationUrl.protocol !== "http:" &&
-        destinationUrl.protocol !== "https:"
-      ) {
-        throw new Error("Invalid protocol");
-      }
-    } catch {
+    if (destinationUrl.length > 500) {
+
       return new Response(
         JSON.stringify({
-          error: "Please enter a valid website URL"
+          error: "The destination is too long"
         }),
         {
           status: 400,
@@ -91,6 +108,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
@@ -104,6 +122,7 @@ export async function onRequestPost(context) {
       context.env.SUPABASE_SECRET_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
+
       return new Response(
         JSON.stringify({
           error: "Supabase configuration is missing"
@@ -115,6 +134,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
@@ -130,6 +150,7 @@ export async function onRequestPost(context) {
       `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_price`,
       {
         method: "GET",
+
         headers: {
           "apikey": supabaseKey,
           "Authorization": `Bearer ${supabaseKey}`,
@@ -142,6 +163,7 @@ export async function onRequestPost(context) {
       await priceResponse.text();
 
     if (!priceResponse.ok) {
+
       console.log(
         "Price lookup failed:",
         priceResponse.status,
@@ -159,14 +181,18 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     let priceData;
 
     try {
+
       priceData =
         JSON.parse(priceResponseText);
+
     } catch {
+
       return new Response(
         JSON.stringify({
           error: "Invalid price response"
@@ -178,12 +204,14 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     if (
       !Array.isArray(priceData) ||
       priceData.length === 0
     ) {
+
       return new Response(
         JSON.stringify({
           error: "Current price not found"
@@ -195,6 +223,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     const currentPrice =
@@ -208,6 +237,7 @@ export async function onRequestPost(context) {
       !Number.isInteger(currentPrice) ||
       currentPrice <= 0
     ) {
+
       console.log(
         "Invalid database price:",
         currentPrice
@@ -224,16 +254,11 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
     // Create Stripe Checkout Session
-    //
-    // Stripe expects the smallest currency unit.
-    //
-    // currentPrice is already cents.
-    //
-    // 1563 = $15.63
     // --------------------------------------------
 
     const stripeParams =
@@ -304,7 +329,7 @@ export async function onRequestPost(context) {
 
     stripeParams.append(
       "metadata[destination_url]",
-      destinationUrl.toString()
+      destinationUrl
     );
 
     // --------------------------------------------
@@ -315,6 +340,7 @@ export async function onRequestPost(context) {
       context.env.STRIPE_SECRET_KEY;
 
     if (!stripeSecretKey) {
+
       return new Response(
         JSON.stringify({
           error: "Stripe configuration is missing"
@@ -326,6 +352,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
@@ -358,6 +385,7 @@ export async function onRequestPost(context) {
     // --------------------------------------------
 
     if (!stripeResponse.ok) {
+
       console.log(
         "Stripe error:",
         stripeData
@@ -376,6 +404,7 @@ export async function onRequestPost(context) {
           }
         }
       );
+
     }
 
     // --------------------------------------------
@@ -390,6 +419,7 @@ export async function onRequestPost(context) {
       }),
       {
         status: 200,
+
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "no-store"
@@ -412,10 +442,13 @@ export async function onRequestPost(context) {
       }),
       {
         status: 500,
+
         headers: {
           "Content-Type": "application/json"
         }
       }
     );
+
   }
+
 }
