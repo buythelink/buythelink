@@ -1,47 +1,53 @@
 export async function onRequestGet(context) {
   try {
+    const supabaseUrl = context.env.SUPABASE_URL;
+    const supabaseKey = context.env.SUPABASE_SECRET_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response("Server configuration error", {
+        status: 500
+      });
+    }
+
     const response = await fetch(
-      `${context.env.SUPABASE_URL}/rest/v1/site_state?id=eq.1&select=current_url`,
+      `${supabaseUrl}/rest/v1/site_state?id=eq.1&select=current_url`,
       {
         headers: {
-          "apikey": context.env.SUPABASE_SECRET_KEY,
-          "Authorization": `Bearer ${context.env.SUPABASE_SECRET_KEY}`,
-          "Accept-Profile": "public"
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
         }
       }
     );
 
     if (!response.ok) {
-      return new Response("Unable to find current link", {
+      return new Response("Unable to retrieve current link", {
         status: 500
       });
     }
 
     const data = await response.json();
 
-    if (!data.length || !data[0].current_url) {
-      return new Response("No link has been purchased yet.", {
+    if (!data || !data.length || !data[0].current_url) {
+      return new Response("No link has been purchased yet", {
         status: 404
       });
     }
 
-    const destination = data[0].current_url;
+    const destination = String(data[0].current_url).trim();
 
-    // Only allow normal HTTP/HTTPS destinations.
-    const url = new URL(destination);
-
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return new Response("Invalid destination", {
+    // Only allow normal web URLs
+    if (!/^https?:\/\//i.test(destination)) {
+      return new Response("Invalid destination URL", {
         status: 400
       });
     }
 
-    return Response.redirect(url.toString(), 302);
+    return Response.redirect(destination, 302);
 
   } catch (error) {
-    console.log("Redirect error:", error);
+    console.error("Redirect error:", error);
 
-    return new Response("Redirect error", {
+    return new Response("Redirect failed", {
       status: 500
     });
   }
