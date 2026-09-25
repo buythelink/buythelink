@@ -597,7 +597,7 @@
         <a
           class="owner-link"
           id="owner-link"
-          href="#"
+          href="/api/redirect"
           target="_blank"
           rel="noopener noreferrer"
           style="display:none;"
@@ -943,8 +943,16 @@
 
         if (data.url) {
 
+          /*
+           * The displayed URL is the current
+           * destination, but clicking it must go
+           * through the redirect endpoint so the
+           * destination is always taken from the
+           * current database value.
+           */
+
           ownerLink.href =
-            data.url;
+            "/api/redirect";
 
           ownerLink.textContent =
             data.url;
